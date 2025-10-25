@@ -24,16 +24,14 @@ def main(search_keyword):
     sys.stderr.reconfigure(encoding='utf-8')
 
     options = webdriver.ChromeOptions()
-    # --- [핵심] service 객체를 올바르게 생성합니다. ---
     service = Service(ChromeDriverManager().install())
 
     options.add_argument('user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64)')
     options.add_argument("--start-maximized")
     options.add_argument("--headless")
     options.add_argument("--disable-gpu")
-    options.add_argument("--log-level=3") # 불필요한 로그 메시지 숨기기
+    options.add_argument("--log-level=3")
 
-    # --- [핵심] 오타를 수정합니다: service=Service (X) -> service=service (O) ---
     driver = webdriver.Chrome(service=service, options=options)
 
     results = []
@@ -68,13 +66,22 @@ def main(search_keyword):
                     review_match = re.search(r'\d+', review_text.replace(',', ''))
                     review_count = review_match.group() if review_match else "0"
 
+                    # --- [수정] 이미지 URL 가져오기 ---
+                    try:
+                        # 'img.photo_g' 셀렉터로 썸네일 이미지를 찾습니다.
+                        image_url = p.find_element(By.CSS_SELECTOR, 'img.photo_g').get_attribute('src')
+                    except NoSuchElementException:
+                        image_url = None  # 이미지가 없는 경우 None (JSON에서 null이 됨)
+                    # --- [수정] 여기까지 ---
+
                     store_data = {
                         "storeName": name,
                         "category": category,
                         "address": address,
                         "rating": rating,
                         "reviewCount": review_count,
-                        "link": link
+                        "link": link,
+                        "imageUrl": image_url  # --- [수정] 딕셔너리에 이미지 URL 추가 ---
                     }
                     results.append(store_data)
 
@@ -97,6 +104,7 @@ def main(search_keyword):
 
     finally:
         driver.quit()
+        # JSON 출력
         print(json.dumps(results, ensure_ascii=False))
         print(f"\n크롤링 완료! 총 {len(results)}개의 결과 출력.", file=sys.stderr)
 
