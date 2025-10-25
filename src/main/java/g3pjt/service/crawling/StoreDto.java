@@ -10,4 +10,5 @@ public class StoreDto {
     private String rating;
     private String reviewCount;
     private String link;
+    private String imageUrl;
 }
