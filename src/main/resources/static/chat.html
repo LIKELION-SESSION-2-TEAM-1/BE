@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>WebSocket Chat</title>
+    <style>
+        body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; max-width: 720px; margin: 24px auto; }
+        #log { height: 300px; border: 1px solid #ccc; padding: 8px; overflow: auto; white-space: pre-wrap; }
+        .controls { display: flex; gap: 8px; align-items: center; margin: 8px 0 12px; }
+        #msg { flex: 1; }
+    </style>
+</head>
+<body>
+<h1>WebSocket 채팅 테스트</h1>
+
+<section class="controls" aria-label="연결 제어">
+    <button id="connectBtn" type="button" aria-controls="log" aria-label="웹소켓 연결">Connect</button>
+    <button id="disconnectBtn" type="button" aria-controls="log" aria-label="웹소켓 연결 해제" disabled>Disconnect</button>
+</section>
+
+<!-- 대화 로그: 스크린리더가 새 메시지를 읽을 수 있도록 role/aria-live 부여 -->
+<div id="log" role="log" aria-live="polite" aria-atomic="false"></div>
+
+<form class="controls" aria-label="메시지 전송" onsubmit="return false;">
+    <label for="msg">메시지</label>
+    <input id="msg" name="message" type="text" placeholder="메시지 입력 후 Enter" autocomplete="off" />
+    <button id="sendBtn" type="submit" aria-label="메시지 보내기" disabled>Send</button>
+</form>
+
+<script>
+    let ws = null;
+
+    const $ = (id) => document.getElementById(id);
+    const logEl = $('log');
+    const connectBtn = $('connectBtn');
+    const disconnectBtn = $('disconnectBtn');
+    const msgInput = $('msg');
+    const sendBtn = $('sendBtn');
+
+    const log = (t) => {
+      logEl.textContent += t + '\n';
+      logEl.scrollTop = logEl.scrollHeight;
+    };
+
+    const isSecure = location.protocol === 'https:';
+    const wsURL = 'ws://localhost:8080/ws/conn';
+
+    function setConnectedUI(connected) {
+      connectBtn.disabled = connected;
+      disconnectBtn.disabled = !connected;
+      sendBtn.disabled = !connected;
+      if (connected) msgInput.focus();
+    }
+
+    connectBtn.addEventListener('click', () => {
+      if (ws && ws.readyState === WebSocket.OPEN) return;
+
+      ws = new WebSocket(wsURL);
+
+      ws.addEventListener('open', () => {
+        log('[연결됨] ' + wsURL);
+        setConnectedUI(true);
+      });
+
+      ws.addEventListener('message', (e) => {
+        log(e.data);
+      });
+
+      ws.addEventListener('close', () => {
+        log('[연결 종료]');
+        setConnectedUI(false);
+      });
+
+      ws.addEventListener('error', (e) => {
+        // 일부 브라우저는 e.message가 비어있을 수 있음
+        log('[에러] 연결 중 문제가 발생했습니다.');
+      });
+    });
+
+    disconnectBtn.addEventListener('click', () => {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.close();
+      }
+    });
+
+    function send() {
+      const v = msgInput.value.trim();
+      if (!v || !ws || ws.readyState !== WebSocket.OPEN) return;
+      ws.send(v);
+      msgInput.value = '';
+      msgInput.focus();
+    }
+
+    // Enter 제출 / 버튼 클릭 모두 처리
+    sendBtn.addEventListener('click', send);
+    msgInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        send();
+      }
+    });
+</script>
+</body>
+</html>
