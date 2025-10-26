@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8" />
+    <title>STOMP Chat Test (pure WS)</title>
+</head>
+<body>
+<h3>STOMP Chat Test</h3>
+
+<div>
+    <label>Room ID: <input id="room" value="1"/></label>
+    <label>Message: <input id="msg" placeholder="message"/></label>
+</div>
+
+<div style="margin-top:8px;">
+    <button onclick="connect()">Connect</button>
+    <button onclick="disconnect()">Disconnect</button>
+    <button onclick="sendMsg()">Send TALK</button>
+</div>
+
+<div style="margin-top:16px;">
+    <label>DM Receiver UserId: <input id="dmTo" placeholder="123"/></label>
+    <button onclick="sendDM()">Send DM</button>
+</div>
+
+<pre id="log" style="margin-top:16px; background:#f5f5f5; padding:10px;"></pre>
+
+<!-- stompjs (WebSocket 위에서 STOMP만 사용; SockJS 불필요) -->
+<script src="https://cdn.jsdelivr.net/npm/stompjs/lib/stomp.min.js"></script>
+<script>
+    let stomp = null;
+    let ws = null;
+    let roomId = '1';
+
+    function log(...args) {
+      const el = document.getElementById('log');
+      el.textContent += args.join(' ') + '\n';
+      el.scrollTop = el.scrollHeight;
+    }
+
+    function connect() {
+      roomId = document.getElementById('room').value || '1';
+
+      // 현재 설정에 맞춘 "순수 WebSocket" 엔드포인트 (SockJS 아님!)
+      const scheme = (location.protocol === 'https:') ? 'wss' : 'ws';
+      const url = `${scheme}://${location.host}/stomp-ws`;
+
+      ws = new WebSocket(url);
+      stomp = Stomp.over(ws);
+
+      // 필요 시 콘솔 로그 끄기
+      // stomp.debug = null;
+
+      stomp.connect({}, frame => {
+        log('CONNECTED:', frame);
+
+        // 방 구독: /sub/chat/{roomId}
+        stomp.subscribe(`/sub/chat/${roomId}`, message => {
+          log('ROOM RECV:', message.body);
+        });
+
+        // DM 구독: /user/queue/dm  (서버에서 convertAndSendToUser 사용 시 수신)
+        stomp.subscribe('/user/queue/dm', message => {
+          log('DM RECV:', message.body);
+        });
+
+      }, err => {
+        log('ERROR:', err);
+      });
+    }
+
+    function disconnect() {
+      try { stomp && stomp.disconnect(()=>log('DISCONNECTED')); }
+      catch(e){ log('DISCONNECT ERROR:', e); }
+      finally { stomp = null; ws = null; }
+    }
+
+    function sendMsg() {
+      if (!stomp || !stomp.connected) { log('Not connected'); return; }
+
+      const msg = document.getElementById('msg').value || '';
+      const payload = {
+        chatRoomId: Number(roomId),
+        senderUserId: 1,
+        senderName: "tester",
+        message: msg,
+        messageType: "TALK" // JOIN, TALK, LEAVE, DM 중 택1
+      };
+
+      // SEND prefix는 /pub (config에 맞춤)
+      stomp.send(`/pub/chat/${roomId}`, {}, JSON.stringify(payload));
+      log('SENT TALK:', JSON.stringify(payload));
+    }
+
+    function sendDM() {
+      if (!stomp || !stomp.connected) { log('Not connected'); return; }
+
+      const msg = document.getElementById('msg').value || '';
+      const to = document.getElementById('dmTo').value;
+      if (!to) { log('DM 대상(receiverUserId)을 입력하세요'); return; }
+
+      const payload = {
+        chatRoomId: Number(roomId),
+        senderUserId: 1,
+        senderName: "tester",
+        receiverUserId: Number(to),
+        message: msg,
+        messageType: "DM"
+      };
+
+      // 서버는 convertAndSendToUser(String.valueOf(receiverUserId), "/queue/dm", dto) 호출
+      // 클라측은 /user/queue/dm 구독 중
+      stomp.send(`/pub/chat/${roomId}`, {}, JSON.stringify(payload));
+      log('SENT DM:', JSON.stringify(payload));
+    }
+</script>
+</body>
+</html>
