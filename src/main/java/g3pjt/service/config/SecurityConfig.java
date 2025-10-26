@@ -52,7 +52,7 @@ public class SecurityConfig {
 
 
                         // 위에서 허용한 URL 외의 모든 요청은 인증(로그인)이 필요함
-                        .anyRequest().authenticated()
+                        .anyRequest().permitAll()
         );
 
         // (선택) H2 콘솔 iframe 허용
