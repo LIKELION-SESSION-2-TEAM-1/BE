@@ -56,4 +56,11 @@ public class UserService {
         // 3. 로그인 성공 및 JWT 발급
         return jwtUtil.createToken(user.getUsername());
     }
+    public String getDisplayNameByUserId(Long userId){
+        if (userId == null) return "unknown";
+        return userRepository.findById(userId)
+                .map(user-> {
+                    return user.getUsername();
+                }).orElse("unknown");
+    }
 }
