@@ -32,6 +32,8 @@ public class SecurityConfig {
         http.csrf(AbstractHttpConfigurer::disable);
         http.formLogin(AbstractHttpConfigurer::disable);
         http.httpBasic(AbstractHttpConfigurer::disable);
+        // 4. CORS 설정 (프론트엔드 연동 시 필수)
+        http.cors(cors -> cors.configurationSource(corsConfigurationSource()));
 
         // 2. 세션(Session)을 사용하지 않도록 설정 (STATELESS)
         http.sessionManagement(session ->
@@ -50,6 +52,9 @@ public class SecurityConfig {
                         // '/api/stores/search' 경로는 '인증'만 되면 (로그인한 사용자면) 허용
                         .requestMatchers("/api/stores/search/**").permitAll()
 
+                        // Swagger UI 및 API 문서 접근 허용
+                        .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
+
 
                         // 위에서 허용한 URL 외의 모든 요청은 인증(로그인)이 필요함
                         .anyRequest().permitAll()
@@ -59,5 +64,18 @@ public class SecurityConfig {
         // http.headers(headers -> headers.frameOptions(frame -> frame.sameOrigin()));
         System.out.println("********** 4. securityFilterChain 설정 완료, 빌드 시작 **********");
         return http.build();
+    }
+
+    @Bean
+    public org.springframework.web.cors.CorsConfigurationSource corsConfigurationSource() {
+        org.springframework.web.cors.CorsConfiguration configuration = new org.springframework.web.cors.CorsConfiguration();
+        configuration.addAllowedOriginPattern("*"); // 모든 출처 허용
+        configuration.addAllowedMethod("*"); // 모든 HTTP 메서드 허용
+        configuration.addAllowedHeader("*"); // 모든 헤더 허용
+        configuration.setAllowCredentials(true); // 쿠키/인증 정보 포함 허용
+
+        org.springframework.web.cors.UrlBasedCorsConfigurationSource source = new org.springframework.web.cors.UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);
+        return source;
     }
 }
