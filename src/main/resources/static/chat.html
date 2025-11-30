@@ -82,6 +82,14 @@
       align-items: center;
       margin-bottom: 8px;
       font-size: 14px;
+      padding: 8px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+
+    .agenda-item:hover {
+      background-color: #f5f5f5;
     }
 
     .agenda-item:last-child {
@@ -236,21 +244,16 @@
       </div>
     </div>
 
-    <!-- Agenda -->
+    <!-- Chat Room List -->
     <div class="agenda-box">
-      <div class="agenda-header">
-        <span>● 여행 안건</span>
-        <span>&gt;</span>
+      <div class="agenda-header" style="display: flex; justify-content: space-between; align-items: center;">
+        <span>● 채팅방 목록</span>
+        <span
+          style="font-size: 12px; cursor: pointer; background: rgba(255,255,255,0.2); padding: 2px 8px; border-radius: 10px;"
+          onclick="createRoom()">➕ 방 만들기</span>
       </div>
-      <div class="agenda-list">
-        <div class="agenda-item">
-          <span>• 숙소 예산</span>
-          <span class="badge voting">투표 중</span>
-        </div>
-        <div class="agenda-item">
-          <span>• 롯데월드 방문 여부</span>
-          <span class="badge confirmed">확정</span>
-        </div>
+      <div class="agenda-list" id="roomList">
+        <div style="text-align: center; padding: 20px; color: #999; font-size: 14px;">불러오는 중...</div>
       </div>
     </div>
 
@@ -279,11 +282,66 @@
 
   <script>
     let stompClient = null;
-    const roomId = 1; // Test Room ID
+    let roomId = null;
     const myUserId = Math.floor(Math.random() * 1000); // Random User ID for test
-    const myName = "나";
+    const myName = "User" + myUserId;
+
+    // 1. Fetch Room List
+    function fetchRooms() {
+      fetch('/api/chats/rooms')
+        .then(response => response.json())
+        .then(rooms => {
+          const list = document.getElementById('roomList');
+          list.innerHTML = ''; // Clear existing
+
+          if (rooms.length === 0) {
+            list.innerHTML = '<div style="text-align: center; padding: 20px; color: #999; font-size: 14px;">생성된 방이 없습니다.</div>';
+            return;
+          }
+
+          rooms.forEach(room => {
+            const div = document.createElement('div');
+            div.className = 'agenda-item';
+            div.onclick = () => enterRoom(room.roomId, room.name);
+            div.innerHTML = `
+                        <span style="font-weight: bold; color: #333;">📢 ${room.name}</span>
+                        <span class="badge confirmed" style="background-color: #8ecdc8;">입장</span>
+                    `;
+            list.appendChild(div);
+          });
+        })
+        .catch(err => {
+          console.error(err);
+          document.getElementById('roomList').innerHTML = '<div style="text-align: center; color: red;">목록 로드 실패</div>';
+        });
+    }
+
+    // 2. Create Room
+    function createRoom() {
+      const name = prompt("새로운 방 이름을 입력하세요:");
+      if (name) {
+        fetch('/api/chats/rooms?name=' + encodeURIComponent(name), { method: 'POST' })
+          .then(response => response.json())
+          .then(room => {
+            alert('방이 생성되었습니다: ' + room.name);
+            fetchRooms();
+          });
+      }
+    }
+
+    // 3. Enter Room
+    function enterRoom(id, name) {
+      if (stompClient) {
+        stompClient.disconnect();
+      }
+      roomId = id;
+      document.querySelector('.title').innerText = name + " (" + id + ")";
+      document.getElementById('chatArea').innerHTML = '<div class="date-divider">채팅방에 입장했습니다.</div>';
+      connect();
+    }
 
     function connect() {
+      if (!roomId) return;
       const socket = new SockJS('/stomp-ws');
       stompClient = Stomp.over(socket);
       stompClient.connect({}, function (frame) {
@@ -302,11 +360,21 @@
         //   // message: "입장했습니다.",
         //   messageType: 'JOIN'
         // }));
-
+        
+        // Load History
+        fetch('/api/chats/' + roomId)
+          .then(res => res.json())
+          .then(msgs => {
+            msgs.forEach(msg => showMessage(msg));
+          });
       });
     }
 
     function sendMessage() {
+      if (!roomId) {
+        alert("방을 먼저 선택해주세요.");
+        return;
+      }
       const input = document.getElementById('messageInput');
       const message = input.value;
 
@@ -330,11 +398,9 @@
       const row = document.createElement('div');
       row.className = 'message-row' + (isMe ? ' me' : '');
 
-      // Avatar (Random color for others)
       if (!isMe) {
         const avatar = document.createElement('div');
         avatar.className = 'avatar';
-        // Simple placeholder avatar
         avatar.innerHTML = `<div style="width:100%;height:100%;background:#${Math.floor(Math.random() * 16777215).toString(16)};"></div>`;
         row.appendChild(avatar);
       }
@@ -351,33 +417,25 @@
 
       const bubble = document.createElement('div');
       bubble.className = 'message-bubble';
-
-      // Simple highlight logic for demo (matching the image's highlighted words)
-      let text = message.message;
-      const highlights = ['광안리', '몇시에', '서울역에서 출발', '아침 8시', '10시'];
-      highlights.forEach(word => {
-        text = text.replace(new RegExp(word, 'g'), `<span class="highlight">${word}</span>`);
-      });
-
-      bubble.innerHTML = text;
+      bubble.innerText = message.message;
       content.appendChild(bubble);
 
       row.appendChild(content);
       chatArea.appendChild(row);
 
-      // Scroll to bottom
       chatArea.scrollTop = chatArea.scrollHeight;
     }
 
-    // Handle Enter key
     document.getElementById('messageInput').addEventListener('keypress', function (e) {
       if (e.key === 'Enter') {
         sendMessage();
       }
     });
 
-    // Connect on load
-    window.onload = connect;
+    // Init
+    window.onload = function () {
+      fetchRooms();
+    };
   </script>
 
 </body>
