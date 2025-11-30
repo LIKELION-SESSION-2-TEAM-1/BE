@@ -18,6 +18,7 @@ public class StompChatController {
 
     private final SimpMessagingTemplate template;
     private final UserService userService;
+    private final ChatRepository chatRepository;
 
     // 클라이언트 SEND: /pub/chat/{chatRoomId}
     // 클라이언트 SUB: /sub/chat/{chatRoomId}
@@ -31,6 +32,20 @@ public class StompChatController {
         dto.setTs(Instant.now());
 
         log.info("[Room {}] {}({}) -> {}", chatRoomId, dto.getChatRoomId(), displayName, dto.getMessage());
+
+        // MongoDB에 저장
+        ChatDocument chatDocument = ChatDocument.builder()
+                .chatRoomId(chatRoomId)
+                .senderUserId(dto.getSenderUserId())
+                .senderName(displayName)
+                .receiverUserId(dto.getReceiverUserId())
+                .receiverName(dto.getReceiverName())
+                .message(dto.getMessage())
+                .messageType(dto.getMessageType())
+                .ts(dto.getTs())
+                .build();
+        chatRepository.save(chatDocument);
+
         template.convertAndSend("/sub/chat/" + chatRoomId, dto);
 
         if (dto.getMessageType() == ChatDto.MessageType.DM
