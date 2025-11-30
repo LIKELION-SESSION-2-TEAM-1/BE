@@ -1,105 +1,384 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ko">
+
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>WebSocket Chat</title>
-    <style>
-        body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; max-width: 720px; margin: 24px auto; }
-        #log { height: 300px; border: 1px solid #ccc; padding: 8px; overflow: auto; white-space: pre-wrap; }
-        .controls { display: flex; gap: 8px; align-items: center; margin: 8px 0 12px; }
-        #msg { flex: 1; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>부산 여행</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.6.1/sockjs.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+      background-color: #f2f0e9;
+      /* Light beige background */
+      display: flex;
+      justify-content: center;
+      height: 100vh;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 480px;
+      background-color: #f2f0e9;
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      position: relative;
+    }
+
+    /* Header */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 15px 20px;
+      font-size: 18px;
+      font-weight: bold;
+      color: #333;
+    }
+
+    .header .title {
+      flex-grow: 1;
+      text-align: center;
+      margin-left: 40px;
+      /* Balance the icons */
+    }
+
+    .header .icons {
+      display: flex;
+      gap: 15px;
+    }
+
+    /* Agenda Box */
+    .agenda-box {
+      margin: 10px 20px;
+      background-color: white;
+      border-radius: 15px;
+      overflow: hidden;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+    }
+
+    .agenda-header {
+      background-color: #8ecdc8;
+      /* Teal color */
+      padding: 10px 15px;
+      color: white;
+      font-weight: bold;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .agenda-list {
+      padding: 10px 15px;
+    }
+
+    .agenda-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+      font-size: 14px;
+    }
+
+    .agenda-item:last-child {
+      margin-bottom: 0;
+    }
+
+    .badge {
+      padding: 3px 10px;
+      border-radius: 12px;
+      font-size: 11px;
+      color: white;
+    }
+
+    .badge.voting {
+      background-color: #e65f3e;
+      /* Orange/Red */
+    }
+
+    .badge.confirmed {
+      background-color: #888;
+      /* Grey */
+    }
+
+    /* Chat Area */
+    .chat-area {
+      flex-grow: 1;
+      padding: 20px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+
+    .date-divider {
+      text-align: center;
+      font-size: 12px;
+      color: #666;
+      margin: 10px 0;
+    }
+
+    .message-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+    }
+
+    .message-row.me {
+      flex-direction: row-reverse;
+    }
+
+    .avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background-color: #ddd;
+      overflow: hidden;
+    }
+
+    .avatar img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .message-content {
+      display: flex;
+      flex-direction: column;
+      max-width: 70%;
+    }
+
+    .sender-name {
+      font-size: 12px;
+      color: #333;
+      margin-bottom: 4px;
+    }
+
+    .message-bubble {
+      background-color: white;
+      padding: 10px 15px;
+      border-radius: 15px;
+      font-size: 14px;
+      line-height: 1.4;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+      position: relative;
+    }
+
+    .message-row.me .message-bubble {
+      border-top-right-radius: 0;
+    }
+
+    .message-row:not(.me) .message-bubble {
+      border-top-left-radius: 0;
+    }
+
+    .highlight {
+      color: #e65f3e;
+      font-weight: bold;
+    }
+
+    /* Input Area */
+    .input-area {
+      padding: 15px 20px;
+      background-color: #f2f0e9;
+      display: flex;
+      align-items: center;
+    }
+
+    .input-container {
+      flex-grow: 1;
+      background-color: white;
+      border-radius: 25px;
+      padding: 5px 5px 5px 20px;
+      display: flex;
+      align-items: center;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+    }
+
+    .input-container input {
+      border: none;
+      outline: none;
+      flex-grow: 1;
+      font-size: 14px;
+      padding: 10px 0;
+    }
+
+    .send-btn {
+      background-color: #e65f3e;
+      border: none;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: white;
+      margin-left: 10px;
+    }
+  </style>
 </head>
+
 <body>
-<h1>WebSocket 채팅 테스트</h1>
 
-<section class="controls" aria-label="연결 제어">
-    <button id="connectBtn" type="button" aria-controls="log" aria-label="웹소켓 연결">Connect</button>
-    <button id="disconnectBtn" type="button" aria-controls="log" aria-label="웹소켓 연결 해제" disabled>Disconnect</button>
-</section>
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <span>&lt;</span>
+      <div class="title">부산 여행 <span style="font-weight: normal; font-size: 14px; margin-left: 5px;">6</span></div>
+      <div class="icons">
+        <span>🔍</span>
+        <span>☰</span>
+      </div>
+    </div>
 
-<!-- 대화 로그: 스크린리더가 새 메시지를 읽을 수 있도록 role/aria-live 부여 -->
-<div id="log" role="log" aria-live="polite" aria-atomic="false"></div>
+    <!-- Agenda -->
+    <div class="agenda-box">
+      <div class="agenda-header">
+        <span>● 여행 안건</span>
+        <span>&gt;</span>
+      </div>
+      <div class="agenda-list">
+        <div class="agenda-item">
+          <span>• 숙소 예산</span>
+          <span class="badge voting">투표 중</span>
+        </div>
+        <div class="agenda-item">
+          <span>• 롯데월드 방문 여부</span>
+          <span class="badge confirmed">확정</span>
+        </div>
+      </div>
+    </div>
 
-<form class="controls" aria-label="메시지 전송" onsubmit="return false;">
-    <label for="msg">메시지</label>
-    <input id="msg" name="message" type="text" placeholder="메시지 입력 후 Enter" autocomplete="off" />
-    <button id="sendBtn" type="submit" aria-label="메시지 보내기" disabled>Send</button>
-</form>
+    <!-- Chat Area -->
+    <div class="chat-area" id="chatArea">
+      <div class="date-divider">2025년 9월 21일</div>
 
-<script>
-    let ws = null;
+      <!-- Messages will be appended here -->
 
-    const $ = (id) => document.getElementById(id);
-    const logEl = $('log');
-    const connectBtn = $('connectBtn');
-    const disconnectBtn = $('disconnectBtn');
-    const msgInput = $('msg');
-    const sendBtn = $('sendBtn');
+    </div>
 
-    const log = (t) => {
-      logEl.textContent += t + '\n';
-      logEl.scrollTop = logEl.scrollHeight;
-    };
+    <!-- Input Area -->
+    <div class="input-area">
+      <div class="input-container">
+        <input type="text" id="messageInput" placeholder="메세지를 입력하세요">
+        <button class="send-btn" onclick="sendMessage()">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <line x1="22" y1="2" x2="11" y2="13"></line>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </div>
 
-    const isSecure = location.protocol === 'https:';
-    const wsURL = 'ws://localhost:8080/ws/conn';
+  <script>
+    let stompClient = null;
+    const roomId = 1; // Test Room ID
+    const myUserId = Math.floor(Math.random() * 1000); // Random User ID for test
+    const myName = "나";
 
-    function setConnectedUI(connected) {
-      connectBtn.disabled = connected;
-      disconnectBtn.disabled = !connected;
-      sendBtn.disabled = !connected;
-      if (connected) msgInput.focus();
+    function connect() {
+      const socket = new SockJS('/stomp-ws');
+      stompClient = Stomp.over(socket);
+      stompClient.connect({}, function (frame) {
+        console.log('Connected: ' + frame);
+
+        // Subscribe to the chat room
+        stompClient.subscribe('/sub/chat/' + roomId, function (message) {
+          showMessage(JSON.parse(message.body));
+        });
+
+        // Send a JOIN message (optional, but good for testing)
+        stompClient.send("/pub/chat/" + roomId, {}, JSON.stringify({
+          chatRoomId: roomId,
+          senderUserId: myUserId,
+          senderName: myName,
+          message: "입장했습니다.",
+          messageType: 'JOIN'
+        }));
+      });
     }
 
-    connectBtn.addEventListener('click', () => {
-      if (ws && ws.readyState === WebSocket.OPEN) return;
+    function sendMessage() {
+      const input = document.getElementById('messageInput');
+      const message = input.value;
 
-      ws = new WebSocket(wsURL);
+      if (message.trim() === '') return;
 
-      ws.addEventListener('open', () => {
-        log('[연결됨] ' + wsURL);
-        setConnectedUI(true);
-      });
+      stompClient.send("/pub/chat/" + roomId, {}, JSON.stringify({
+        chatRoomId: roomId,
+        senderUserId: myUserId,
+        senderName: myName,
+        message: message,
+        messageType: 'TALK'
+      }));
 
-      ws.addEventListener('message', (e) => {
-        log(e.data);
-      });
+      input.value = '';
+    }
 
-      ws.addEventListener('close', () => {
-        log('[연결 종료]');
-        setConnectedUI(false);
-      });
+    function showMessage(message) {
+      const chatArea = document.getElementById('chatArea');
+      const isMe = message.senderUserId === myUserId;
 
-      ws.addEventListener('error', (e) => {
-        // 일부 브라우저는 e.message가 비어있을 수 있음
-        log('[에러] 연결 중 문제가 발생했습니다.');
-      });
-    });
+      const row = document.createElement('div');
+      row.className = 'message-row' + (isMe ? ' me' : '');
 
-    disconnectBtn.addEventListener('click', () => {
-      if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.close();
+      // Avatar (Random color for others)
+      if (!isMe) {
+        const avatar = document.createElement('div');
+        avatar.className = 'avatar';
+        // Simple placeholder avatar
+        avatar.innerHTML = `<div style="width:100%;height:100%;background:#${Math.floor(Math.random() * 16777215).toString(16)};"></div>`;
+        row.appendChild(avatar);
       }
-    });
 
-    function send() {
-      const v = msgInput.value.trim();
-      if (!v || !ws || ws.readyState !== WebSocket.OPEN) return;
-      ws.send(v);
-      msgInput.value = '';
-      msgInput.focus();
+      const content = document.createElement('div');
+      content.className = 'message-content';
+
+      if (!isMe) {
+        const name = document.createElement('div');
+        name.className = 'sender-name';
+        name.innerText = message.senderName;
+        content.appendChild(name);
+      }
+
+      const bubble = document.createElement('div');
+      bubble.className = 'message-bubble';
+
+      // Simple highlight logic for demo (matching the image's highlighted words)
+      let text = message.message;
+      const highlights = ['광안리', '몇시에', '서울역에서 출발', '아침 8시', '10시'];
+      highlights.forEach(word => {
+        text = text.replace(new RegExp(word, 'g'), `<span class="highlight">${word}</span>`);
+      });
+
+      bubble.innerHTML = text;
+      content.appendChild(bubble);
+
+      row.appendChild(content);
+      chatArea.appendChild(row);
+
+      // Scroll to bottom
+      chatArea.scrollTop = chatArea.scrollHeight;
     }
 
-    // Enter 제출 / 버튼 클릭 모두 처리
-    sendBtn.addEventListener('click', send);
-    msgInput.addEventListener('keydown', (e) => {
+    // Handle Enter key
+    document.getElementById('messageInput').addEventListener('keypress', function (e) {
       if (e.key === 'Enter') {
-        e.preventDefault();
-        send();
+        sendMessage();
       }
     });
-</script>
+
+    // Connect on load
+    window.onload = connect;
+  </script>
+
 </body>
+
 </html>

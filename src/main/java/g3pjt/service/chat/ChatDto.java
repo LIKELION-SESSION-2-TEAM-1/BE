@@ -16,8 +16,10 @@ public class ChatDto {
     public enum MessageType{JOIN, TALK, LEAVE, DM}
 
     private Long chatRoomId;
-    private Long senderUserId; private String senderName;
-    private Long receiverUserId; private String receiverName;
+    private Long senderUserId; 
+    private String senderName;
+    private Long receiverUserId; 
+    private String receiverName;
     private String message;
 
     private MessageType messageType;
