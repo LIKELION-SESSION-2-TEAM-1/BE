@@ -20,7 +20,7 @@ public class CrawlingService {
         System.out.println("Crawling started for keyword: " + keyword);
 
         try {
-            String pythonExecutable = "C:\\Users\\antho\\OneDrive\\Desktop\\크롤링\\venv3.12\\Scripts\\python.exe";
+            String pythonExecutable = "C:\\Python314\\python.exe";
             ClassPathResource resource = new ClassPathResource("crawler.py");
             String scriptPath = resource.getFile().getAbsolutePath();
 
