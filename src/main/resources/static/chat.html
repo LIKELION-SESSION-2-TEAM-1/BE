@@ -256,7 +256,7 @@
 
     <!-- Chat Area -->
     <div class="chat-area" id="chatArea">
-      <div class="date-divider">2025년 9월 21일</div>
+      <div class="date-divider">2025년 12월 1일</div>
 
       <!-- Messages will be appended here -->
 
@@ -295,13 +295,14 @@
         });
 
         // Send a JOIN message (optional, but good for testing)
-        stompClient.send("/pub/chat/" + roomId, {}, JSON.stringify({
-          chatRoomId: roomId,
-          senderUserId: myUserId,
-          senderName: myName,
-          message: "입장했습니다.",
-          messageType: 'JOIN'
-        }));
+        // stompClient.send("/pub/chat/" + roomId, {}, JSON.stringify({
+        //   chatRoomId: roomId,
+        //   senderUserId: myUserId,
+        //   senderName: myName,
+        //   // message: "입장했습니다.",
+        //   messageType: 'JOIN'
+        // }));
+
       });
     }
 
