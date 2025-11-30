@@ -55,6 +55,9 @@ public class SecurityConfig {
                         // Swagger UI 및 API 문서 접근 허용
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
 
+                        // WebSocket 엔드포인트 허용
+                        .requestMatchers("/stomp-ws/**").permitAll()
+
 
                         // 위에서 허용한 URL 외의 모든 요청은 인증(로그인)이 필요함
                         .anyRequest().permitAll()
