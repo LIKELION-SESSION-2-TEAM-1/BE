@@ -13,37 +13,40 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import java.io.File;
+import java.io.IOException;
+
 @Service
 public class CrawlingService {
 
-    public List<StoreDto> searchStores(String keyword) {
-        System.out.println("Crawling started for keyword: " + keyword);
+    @org.springframework.beans.factory.annotation.Value("${python.executable.path:python}")
+    private String configuredPythonPath;
+
+    public List<StoreDto> searchStoresBatch(List<String> keywords) {
+        if (keywords == null || keywords.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        System.out.println("Batch crawling started for keywords: " + keywords);
 
         try {
-            String pythonExecutable = "C:\\Python314\\python.exe";
             ClassPathResource resource = new ClassPathResource("crawler.py");
             String scriptPath = resource.getFile().getAbsolutePath();
+            String pythonExecutable = resolvePythonExecutable();
 
-            ProcessBuilder processBuilder = new ProcessBuilder(pythonExecutable, scriptPath, keyword);
+            // Build command: python script.py keyword1 keyword2 ...
+            List<String> command = new ArrayList<>();
+            command.add(pythonExecutable);
+            command.add(scriptPath);
+            command.addAll(keywords);
 
+            ProcessBuilder processBuilder = new ProcessBuilder(command);
             Map<String, String> env = processBuilder.environment();
             env.put("PYTHONIOENCODING", "UTF-8");
 
-            // --- [핵심 수정] 에러 스트림을 별도로 읽기 위해 이 라인을 주석 처리합니다. ---
-            // processBuilder.redirectErrorStream(true);
-
             Process process = processBuilder.start();
 
-            // --- [핵심 추가] Python의 에러 메시지(진행 상황 포함)를 읽는 부분 ---
-            StringBuilder errorOutput = new StringBuilder();
-            try (BufferedReader errorReader = new BufferedReader(new InputStreamReader(process.getErrorStream(), StandardCharsets.UTF_8))) {
-                String line;
-                while ((line = errorReader.readLine()) != null) {
-                    errorOutput.append(line).append("\n");
-                }
-            }
-
-            // Python이 출력한 JSON 문자열 전체를 읽어옴
+            // Read output
             String jsonResult;
             try (InputStream inputStream = process.getInputStream()) {
                 jsonResult = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8))
@@ -53,24 +56,57 @@ public class CrawlingService {
 
             int exitCode = process.waitFor();
 
-            // --- [핵심 추가] Python의 에러/진행 메시지를 Java 콘솔에 출력 ---
-            if (errorOutput.length() > 0) {
-                System.err.println("--- Python Script Stderr Output ---");
-                System.err.println(errorOutput.toString());
-                System.err.println("-----------------------------------");
-            }
-
             if (exitCode == 0 && jsonResult != null && !jsonResult.trim().isEmpty()) {
                 ObjectMapper objectMapper = new ObjectMapper();
                 return objectMapper.readValue(jsonResult, new TypeReference<>() {});
             } else {
-                System.err.println("Python script exited with error code: " + exitCode + " or produced empty output.");
                 return new ArrayList<>();
             }
 
         } catch (Exception e) {
             e.printStackTrace();
             return new ArrayList<>();
+        }
+    }
+
+    public List<StoreDto> searchStores(String keyword) {
+        // Fallback or single use
+        return searchStoresBatch(List.of(keyword));
+    }
+
+    private String resolvePythonExecutable() {
+        // 1. Try configured path (from application.properties or env var)
+        if (isValidPython(configuredPythonPath)) {
+            return configuredPythonPath;
+        }
+
+        // 2. Try "python" (System PATH)
+        if (isValidPython("python")) {
+            return "python";
+        }
+
+        // 3. Try "python3" (Mac/Linux)
+        if (isValidPython("python3")) {
+            return "python3";
+        }
+
+        // 4. Fallback: User's specific local path (Last resort for local dev)
+        String localFallback = "C:\\Users\\choke\\AppData\\Local\\Programs\\Python\\Python312\\python.exe";
+        if (new File(localFallback).exists()) {
+            return localFallback;
+        }
+
+        // Default to configured path even if validation failed, to show meaningful error later
+        return configuredPythonPath;
+    }
+
+    private boolean isValidPython(String path) {
+        try {
+            ProcessBuilder pb = new ProcessBuilder(path, "--version");
+            pb.start().waitFor();
+            return true;
+        } catch (IOException | InterruptedException e) {
+            return false;
         }
     }
 }
