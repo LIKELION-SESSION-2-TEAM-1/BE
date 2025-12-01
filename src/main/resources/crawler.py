@@ -110,7 +110,7 @@ def main(search_keyword):
 
 if __name__ == "__main__":
     if len(sys.argv) > 1:
-        keyword = sys.argv[1]
+        keyword = sys.argv[1].strip('"').strip("'")
         main(keyword)
     else:
         print("에러: 검색어를 입력해주세요. 예: python crawler.py 강남역맛집", file=sys.stderr)

@@ -1,0 +1,12 @@
+.git
+.gitignore
+.gradle
+build
+.env
+*.log
+hs_err_pid*.log
+replay_pid*.log
+.idea
+out
+HELP.md
+README.md
