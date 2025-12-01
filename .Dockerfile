@@ -18,7 +18,6 @@ WORKDIR /app
 
 # 4. Copy project files
 COPY . .
-
 # 5. Grant execution permission to gradlew
 RUN chmod +x gradlew
 
