@@ -57,7 +57,15 @@ public class AiService {
         requestBody.put("model", "gpt-3.5-turbo");
         
         List<Map<String, String>> messages = new ArrayList<>();
-        messages.add(Map.of("role", "system", "content", "You are a helpful assistant that analyzes chat conversations to extract travel destination keywords. Extract key locations, cities, or countries mentioned as potential travel destinations. Return ONLY a comma-separated list of keywords. If no travel destinations are found, return an empty string."));
+        // messages.add(Map.of("role", "system", "content", "You are a helpful assistant that analyzes chat conversations to extract travel destination keywords. Extract key locations, cities, or countries mentioned as potential travel destinations. Return ONLY a comma-separated list of keywords. If no travel destinations are found, return an empty string."));
+        messages.add(Map.of("role", "system", "content",
+                "You are an expert AI geography assistant. Your goal is to extract only valid, real-world geographical locations (cities, countries, provinces, or famous tourist landmarks) from the user's conversation. " +
+                        "Strict Rules: " +
+                        "1. Verify Existence: Only return locations that can be found on a real map. " +
+                        "2. Exclude Noise: Do NOT include slang, verbs, common nouns (e.g., 'gang', 'job', 'food'), typos, or ambiguous words. " +
+                        "3. Context: If a word is not a clear destination, ignore it. " +
+                        "Return ONLY a comma-separated list of keywords. If no valid locations are found, return an empty string."
+        ));
         messages.add(Map.of("role", "user", "content", "Chat History:\n" + conversation));
         
         requestBody.put("messages", messages);
