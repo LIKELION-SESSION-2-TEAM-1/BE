@@ -2,6 +2,8 @@ package g3pjt.service.Ai;
 
 import g3pjt.service.chat.ChatDocument;
 import g3pjt.service.chat.ChatRepository;
+import g3pjt.service.crawling.CrawlingService;
+import g3pjt.service.crawling.StoreDto;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -13,7 +15,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.*;
+import java.util.*;
 import java.util.stream.Collectors;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.JsonProcessingException;
 
 @Slf4j
 @Service
@@ -21,6 +26,8 @@ import java.util.stream.Collectors;
 public class AiService {
 
     private final ChatRepository chatRepository;
+    private final ObjectMapper objectMapper;
+    private final CrawlingService crawlingService;
     
     @Value("${openai.api.key}")
     private String openAiApiKey;
@@ -94,5 +101,94 @@ public class AiService {
         }
 
         return Collections.emptyList();
+    }
+
+    public AiPlanDto generateTravelPlan(List<String> keywords) {
+        if (keywords == null || keywords.isEmpty()) {
+            return new AiPlanDto("No Plan", "No destinations provided.", Collections.emptyList());
+        }
+
+        // 1. Crawl data for all keywords at once (Batch Processing)
+        List<StoreDto> crawledPlaces = new ArrayList<>();
+        try {
+            // Remove empty keywords
+            List<String> validKeywords = keywords.stream()
+                    .map(String::trim)
+                    .filter(k -> !k.isEmpty())
+                    .collect(Collectors.toList());
+
+            if (!validKeywords.isEmpty()) {
+                crawledPlaces = crawlingService.searchStoresBatch(validKeywords);
+            }
+        } catch (Exception e) {
+            log.error("Failed to crawl for keywords", e);
+        }
+
+        // 2. Construct prompt with crawled data
+        StringBuilder placesInfo = new StringBuilder();
+        if (crawledPlaces.isEmpty()) {
+            // Fallback if crawling returned nothing
+             for (String keyword : keywords) {
+                placesInfo.append(String.format("- 이름: %s (정보 없음)\n", keyword));
+            }
+        } else {
+            for (StoreDto place : crawledPlaces) {
+                placesInfo.append(String.format("- 이름: %s, 카테고리: %s, 주소: %s, 평점: %s\n",
+                        place.getStoreName(), 
+                        place.getCategory() != null ? place.getCategory() : "미정", 
+                        place.getAddress() != null ? place.getAddress() : "미정", 
+                        place.getRating() != null ? place.getRating() : "0.0"));
+            }
+        }
+
+        String prompt = "다음 여행지 정보를 바탕으로 최적의 여행 계획을 짜줘:\n" + placesInfo.toString() +
+                "\n이 장소들을 효율적인 동선으로 배치해줘. " +
+                "결과는 반드시 다음 JSON 형식으로만 반환해 (다른 텍스트 없이):\n" +
+                "{ \"title\": \"...\", \"description\": \"...\", \"schedule\": [ { \"day\": 1, \"places\": [ { \"name\": \"...\", \"category\": \"...\", \"address\": \"...\", \"distanceToNext\": \"...\" } ] } ] } " +
+                "\nJSON은 유효해야 하며, 한국어로 작성해줘.";
+
+        return callOpenAiToGeneratePlan(prompt);
+    }
+
+    private AiPlanDto callOpenAiToGeneratePlan(String prompt) {
+        RestTemplate restTemplate = new RestTemplate();
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.setBearerAuth(openAiApiKey);
+
+        Map<String, Object> requestBody = new HashMap<>();
+        requestBody.put("model", "gpt-3.5-turbo");
+
+        List<Map<String, String>> messages = new ArrayList<>();
+        messages.add(Map.of("role", "system", "content", "You are a travel expert. Generate a structured travel plan in JSON format. 반드시 한국어로"));
+        messages.add(Map.of("role", "user", "content", prompt));
+
+        requestBody.put("messages", messages);
+        requestBody.put("temperature", 0.7);
+
+        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
+
+        try {
+            ResponseEntity<Map> response = restTemplate.postForEntity(OPENAI_API_URL, entity, Map.class);
+
+            if (response.getBody() != null && response.getBody().containsKey("choices")) {
+                List<Map<String, Object>> choices = (List<Map<String, Object>>) response.getBody().get("choices");
+                if (!choices.isEmpty()) {
+                    Map<String, Object> message = (Map<String, Object>) choices.get(0).get("message");
+                    String content = (String) message.get("content");
+
+                    if (content != null && !content.trim().isEmpty()) {
+                        // Clean up markdown code blocks if present
+                        content = content.replace("```json", "").replace("```", "").trim();
+                        return objectMapper.readValue(content, AiPlanDto.class);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.error("Error calling OpenAI API for plan generation", e);
+        }
+
+        return new AiPlanDto("Error", "Failed to generate plan.", Collections.emptyList());
     }
 }
