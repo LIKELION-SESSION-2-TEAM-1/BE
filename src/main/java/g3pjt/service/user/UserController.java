@@ -42,6 +42,17 @@ public class UserController {
     }
 
 
+    /**
+     * 구글 로그인 (Swagger 설명용)
+     * 이 API를 직접 호출하는 것이 아니라, 브라우저에서 /oauth2/authorization/google 로 이동해야 합니다.
+     */
+    @GetMapping("/google/login")
+    public ResponseEntity<Void> googleLogin() {
+        return ResponseEntity.status(HttpStatus.FOUND)
+                .header("Location", "/oauth2/authorization/google")
+                .build();
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<String> handleException(IllegalArgumentException e) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
