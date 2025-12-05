@@ -11,8 +11,11 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 
+import lombok.RequiredArgsConstructor;
+
 @EnableWebSecurity
 @Configuration
+@RequiredArgsConstructor
 public class SecurityConfig {
 
 //    public SecurityConfig() {
@@ -25,6 +28,8 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder();
     }
 
+    private final OAuth2SuccessHandler oAuth2SuccessHandler;
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         System.out.println("********** 3. securityFilterChain 빈 생성 시도 **********");
@@ -32,6 +37,11 @@ public class SecurityConfig {
         http.csrf(AbstractHttpConfigurer::disable);
         http.formLogin(AbstractHttpConfigurer::disable);
         http.httpBasic(AbstractHttpConfigurer::disable);
+        // OAuth2 로그인 설정 추가
+        http.oauth2Login(oauth2 -> oauth2
+                .successHandler(oAuth2SuccessHandler) // 커스텀 핸들러 등록
+                .failureUrl("/login?error=true") // 로그인 실패 시 리디렉션
+        );
         // 4. CORS 설정 (프론트엔드 연동 시 필수)
         http.cors(cors -> cors.configurationSource(corsConfigurationSource()));
 
