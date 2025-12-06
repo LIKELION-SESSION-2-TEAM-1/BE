@@ -109,6 +109,7 @@ def main(keywords):
 if __name__ == "__main__":
     # 첫 번째 인자는 스크립트 경로이므로 제외하고 나머지 인자들을 키워드로 사용
     if len(sys.argv) > 1:
-        main(sys.argv[1:])
+        keyword = sys.argv[1].strip('"').strip("'")
+        main(keyword)
     else:
         print("[]")

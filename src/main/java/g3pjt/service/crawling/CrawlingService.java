@@ -30,6 +30,18 @@ public class CrawlingService {
         System.out.println("Batch crawling started for keywords: " + keywords);
 
         try {
+            String pythonExecutable = System.getenv("PYTHON_EXECUTABLE");
+            if (pythonExecutable == null || pythonExecutable.isEmpty()) {
+                // 로컬 개발 환경을 위한 하드코딩된 경로 확인
+                java.io.File localPython = new java.io.File("C:\\Users\\choke\\AppData\\Local\\Programs\\Python\\Python312\\python.exe");
+                if (localPython.exists()) {
+                    pythonExecutable = localPython.getAbsolutePath();
+                } else {
+                    pythonExecutable = "python"; // 시스템 PATH에 있는 python 사용
+                }
+            }
+            System.out.println("Using Python executable: " + pythonExecutable);
+
             ClassPathResource resource = new ClassPathResource("crawler.py");
             String scriptPath = resource.getFile().getAbsolutePath();
             String pythonExecutable = resolvePythonExecutable();
