@@ -20,4 +20,11 @@ public class AiController {
         AiDto result = aiService.extractKeywords(chatRoomId);
         return ResponseEntity.ok(result);
     }
+
+    @Operation(summary = "여행 계획 생성", description = "추출된 키워드(여행지)를 바탕으로 최적의 여행 계획을 생성합니다.")
+    @PostMapping("/plan")
+    public ResponseEntity<AiPlanDto> generateTravelPlan(@RequestBody AiDto aiDto) {
+        AiPlanDto result = aiService.generateTravelPlan(aiDto.getKeywords());
+        return ResponseEntity.ok(result);
+    }
 }
