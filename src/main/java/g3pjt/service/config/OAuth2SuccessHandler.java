@@ -48,7 +48,14 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
         // 5. 프론트엔드로 리디렉션 (토큰을 쿼리 파라미터로 전달)
         // 로컬 테스트 시: "http://localhost:5173/?token=" + cleanToken
         // 배포 시: "https://tokplan.vercel.app/?token=" + cleanToken
-        String targetUrl = "https://tokplan.vercel.app/?token=" + cleanToken;
+        // 5. 프론트엔드로 리디렉션
+        // application.properties의 app.frontend.url 값을 사용하거나 기본값 사용
+        String frontendUrl = System.getenv("FRONTEND_URL");
+        if (frontendUrl == null || frontendUrl.isEmpty()) {
+            frontendUrl = "https://tokplan.vercel.app"; // 기본값
+        }
+        
+        String targetUrl = frontendUrl + "/?token=" + cleanToken;
         
         response.sendRedirect(targetUrl);
     }
