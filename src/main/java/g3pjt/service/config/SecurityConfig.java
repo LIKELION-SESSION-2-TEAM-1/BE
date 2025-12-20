@@ -1,5 +1,7 @@
 package g3pjt.service.config;
 
+import g3pjt.service.user.jwt.JwtAuthorizationFilter;
+import g3pjt.service.user.jwt.JwtUtil;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -10,6 +12,7 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 import lombok.RequiredArgsConstructor;
 
@@ -17,6 +20,9 @@ import lombok.RequiredArgsConstructor;
 @Configuration
 @RequiredArgsConstructor
 public class SecurityConfig {
+
+    private final JwtUtil jwtUtil;
+    private final OAuth2SuccessHandler oAuth2SuccessHandler;
 
 //    public SecurityConfig() {
 //        System.out.println("*** SecurityConfig Loaded ***");
@@ -28,7 +34,10 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder();
     }
 
-    private final OAuth2SuccessHandler oAuth2SuccessHandler;
+    @Bean
+    public JwtAuthorizationFilter jwtAuthorizationFilter() {
+        return new JwtAuthorizationFilter(jwtUtil);
+    }
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -59,7 +68,10 @@ public class SecurityConfig {
                         // (선택) H2 콘솔 접근 허용 (개발용 - 지금은 MySQL 쓰니 불필요)
                         // .requestMatchers("/h2-console/**").permitAll()
 
-                        // '/api/stores/search' 경로는 '인증'만 되면 (로그인한 사용자면) 허용
+                        // '/api/stores/search' 경로는 '인증'만 되면 (로그인) 허용 -> permitAll for now based on user's existing code? 
+                        // The user said "jwt login not working", let's keep permitAll but ensure filter runs.
+                        // Actually, to prove it works, we should probably restrict something. 
+                        // But I will stick to adding the filter. The filter chain execution is key.
                         .requestMatchers("/api/stores/search/**").permitAll()
 
                         // Swagger UI 및 API 문서 접근 허용
@@ -72,6 +84,9 @@ public class SecurityConfig {
                         // 위에서 허용한 URL 외의 모든 요청은 인증(로그인)이 필요함
                         .anyRequest().permitAll()
         );
+        
+        // 필터 추가
+        http.addFilterBefore(jwtAuthorizationFilter(), UsernamePasswordAuthenticationFilter.class);
 
         // (선택) H2 콘솔 iframe 허용
         // http.headers(headers -> headers.frameOptions(frame -> frame.sameOrigin()));

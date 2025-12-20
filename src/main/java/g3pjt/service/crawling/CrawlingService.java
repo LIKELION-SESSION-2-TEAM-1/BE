@@ -33,6 +33,7 @@ public class CrawlingService {
             ClassPathResource resource = new ClassPathResource("crawler.py");
             String scriptPath = resource.getFile().getAbsolutePath();
             String pythonExecutable = resolvePythonExecutable();
+            System.out.println("Using Python executable: " + pythonExecutable);
 
             // Build command: python script.py keyword1 keyword2 ...
             List<String> command = new ArrayList<>();

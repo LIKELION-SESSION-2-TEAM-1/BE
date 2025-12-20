@@ -51,4 +51,29 @@ public class JwtUtil {
                         .signWith(key, signatureAlgorithm) // 비밀 키로 서명
                         .compact();
     }
+    /**
+     * 7. 토큰에서 사용자 정보 가져오기
+     */
+    public String getUserFromToken(String token) {
+        return Jwts.parserBuilder().setSigningKey(key).build().parseClaimsJws(token).getBody().getSubject();
+    }
+
+    /**
+     * 8. 토큰 유효성 검사
+     */
+    public boolean validateToken(String token) {
+        try {
+            Jwts.parserBuilder().setSigningKey(key).build().parseClaimsJws(token);
+            return true;
+        } catch (SecurityException | io.jsonwebtoken.MalformedJwtException e) {
+            System.out.println("Invalid JWT signature, 유효하지 않는 JWT 서명 입니다.");
+        } catch (io.jsonwebtoken.ExpiredJwtException e) {
+            System.out.println("Expired JWT token, 만료된 JWT token 입니다.");
+        } catch (io.jsonwebtoken.UnsupportedJwtException e) {
+            System.out.println("Unsupported JWT token, 지원되지 않는 JWT 토큰 입니다.");
+        } catch (IllegalArgumentException e) {
+            System.out.println("JWT claims is empty, 잘못된 JWT 토큰 입니다.");
+        }
+        return false;
+    }
 }
