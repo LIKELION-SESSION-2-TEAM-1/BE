@@ -55,7 +55,7 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
             frontendUrl = "https://tokplan.vercel.app"; // 기본값
         }
         
-        String targetUrl = frontendUrl + "/?token=" + cleanToken;
+        String targetUrl = frontendUrl + "/home?token=" + cleanToken;
         
         response.sendRedirect(targetUrl);
     }
