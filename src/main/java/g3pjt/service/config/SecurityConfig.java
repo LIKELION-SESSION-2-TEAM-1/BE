@@ -100,6 +100,7 @@ public class SecurityConfig {
         configuration.addAllowedOriginPattern("*"); // 모든 출처 허용
         configuration.addAllowedMethod("*"); // 모든 HTTP 메서드 허용
         configuration.addAllowedHeader("*"); // 모든 헤더 허용
+        configuration.addExposedHeader(JwtUtil.AUTHORIZATION_HEADER); // 프론트에서 헤더 확인 허용
         configuration.setAllowCredentials(true); // 쿠키/인증 정보 포함 허용
 
         org.springframework.web.cors.UrlBasedCorsConfigurationSource source = new org.springframework.web.cors.UrlBasedCorsConfigurationSource();
