@@ -30,15 +30,18 @@ public class UserController {
      * 로그인 API
      */
     @PostMapping("/login")
-    public ResponseEntity<String> login(@RequestBody LoginRequestDto requestDto) {
+    public ResponseEntity<java.util.Map<String, String>> login(@RequestBody LoginRequestDto requestDto) {
         // 1. UserService에서 로그인 시도 및 토큰 발급
         String token = userService.login(requestDto);
 
-        // 2. 토큰을 Response Header에 담아서 반환
-        // (Body에도 메시지를 담아줄 수 있음)
+        // 2. 토큰을 Response Header 및 Body에 모두 포함
+        java.util.Map<String, String> responseBody = new java.util.HashMap<>();
+        responseBody.put("message", "로그인 성공");
+        responseBody.put("token", token);
+
         return ResponseEntity.ok()
                 .header(JwtUtil.AUTHORIZATION_HEADER, token)
-                .body("로그인 성공");
+                .body(responseBody);
     }
 
 
