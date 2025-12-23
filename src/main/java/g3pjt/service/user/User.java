@@ -55,11 +55,12 @@ public class User {
     public void updateProfile(String nickname, String profileImageUrl, String birthDate,
                               String travelPace, String dailyRhythm,
                               java.util.List<String> foodPreferences, java.util.List<String> foodRestrictions) {
-        this.nickname = nickname;
-        this.profileImageUrl = profileImageUrl;
-        this.birthDate = birthDate;
-        this.travelPace = travelPace;
-        this.dailyRhythm = dailyRhythm;
+        if (nickname != null) this.nickname = nickname;
+        if (profileImageUrl != null) this.profileImageUrl = profileImageUrl;
+        if (birthDate != null) this.birthDate = birthDate;
+        if (travelPace != null) this.travelPace = travelPace;
+        if (dailyRhythm != null) this.dailyRhythm = dailyRhythm;
+        
         if (foodPreferences != null) {
             this.foodPreferences.clear();
             this.foodPreferences.addAll(foodPreferences);
