@@ -52,6 +52,10 @@ public class User {
         this.password = password;
     }
 
+    public void setNickname(String nickname) {
+        this.nickname = nickname;
+    }
+
     public void updateProfile(String nickname, String profileImageUrl, String birthDate,
                               String travelPace, String dailyRhythm,
                               java.util.List<String> foodPreferences, java.util.List<String> foodRestrictions) {

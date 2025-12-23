@@ -33,6 +33,7 @@ public class UserService {
 
         // 3. 유저 생성 및 저장
         User user = new User(username, encodedPassword);
+        user.setNickname(username); // 초기 닉네임은 아이디와 동일하게 설정
         userRepository.save(user);
     }
 
