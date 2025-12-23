@@ -69,3 +69,4 @@ public class User {
             this.foodRestrictions.addAll(foodRestrictions);
         }
     }
+}
