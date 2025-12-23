@@ -18,4 +18,8 @@ public class ChatRoom {
 
     private Long roomId; // Numeric ID used in ChatDocument
     private String name;
+    
+    // 채팅방 참여자 ID 목록 (User.id)
+    @Builder.Default
+    private java.util.List<Long> memberIds = new java.util.ArrayList<>();
 }

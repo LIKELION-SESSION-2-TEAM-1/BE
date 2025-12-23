@@ -21,8 +21,51 @@ public class User {
     @Column(nullable = false)
     private String password;
 
+    @Column
+    private String nickname;
+
+    @Column
+    private String profileImageUrl;
+
+    @Column
+    private String birthDate; // YYYY-MM-DD
+
+    // 여행 스타일
+    @Column
+    private String travelPace; // 느림, 보통, 빠름
+
+    @Column
+    private String dailyRhythm; // 아침형, 유연, 야행성
+
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "user_food_preferences", joinColumns = @JoinColumn(name = "user_id"))
+    @Column(name = "preference")
+    private java.util.List<String> foodPreferences = new java.util.ArrayList<>();
+
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "user_food_restrictions", joinColumns = @JoinColumn(name = "user_id"))
+    @Column(name = "restriction")
+    private java.util.List<String> foodRestrictions = new java.util.ArrayList<>();
+
     public User(String username, String password) {
         this.username = username;
         this.password = password;
     }
-}
+
+    public void updateProfile(String nickname, String profileImageUrl, String birthDate,
+                              String travelPace, String dailyRhythm,
+                              java.util.List<String> foodPreferences, java.util.List<String> foodRestrictions) {
+        this.nickname = nickname;
+        this.profileImageUrl = profileImageUrl;
+        this.birthDate = birthDate;
+        this.travelPace = travelPace;
+        this.dailyRhythm = dailyRhythm;
+        if (foodPreferences != null) {
+            this.foodPreferences.clear();
+            this.foodPreferences.addAll(foodPreferences);
+        }
+        if (foodRestrictions != null) {
+            this.foodRestrictions.clear();
+            this.foodRestrictions.addAll(foodRestrictions);
+        }
+    }

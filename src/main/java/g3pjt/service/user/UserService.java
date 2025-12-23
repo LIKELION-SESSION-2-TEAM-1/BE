@@ -59,8 +59,40 @@ public class UserService {
     public String getDisplayNameByUserId(Long userId){
         if (userId == null) return "unknown";
         return userRepository.findById(userId)
-                .map(user-> {
+                .map(user -> {
+                    // 닉네임이 있으면 닉네임 반환, 없으면 유저네임 반환
+                    if (user.getNickname() != null && !user.getNickname().isEmpty()) {
+                        return user.getNickname();
+                    }
                     return user.getUsername();
                 }).orElse("unknown");
+    }
+
+    /**
+     * 프로필 수정
+     */
+    @org.springframework.transaction.annotation.Transactional
+    public void updateProfile(String username, g3pjt.service.user.userdto.UserUpdateRequest request) {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+
+        user.updateProfile(
+                request.getNickname(),
+                request.getProfileImageUrl(),
+                request.getBirthDate(),
+                request.getTravelPace(),
+                request.getDailyRhythm(),
+                request.getFoodPreferences(),
+                request.getFoodRestrictions()
+        );
+        // Transactional 어노테이션 덕분에 save 호출 없이도 더티 체킹으로 업데이트됨
+    }
+
+    /**
+     * 프로필 조회
+     */
+    public User getUserProfile(String username) {
+        return userRepository.findByUsername(username)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
     }
 }
