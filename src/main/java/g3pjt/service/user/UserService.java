@@ -153,4 +153,22 @@ public class UserService {
         return userRepository.findByUsername(trimmed)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
     }
+
+    public Optional<User> findOptionalByUsernameOrNickname(String identifier) {
+        if (identifier == null || identifier.trim().isEmpty()) {
+            return Optional.empty();
+        }
+        String trimmed = identifier.trim();
+
+        if (trimmed.contains("@")) {
+            return userRepository.findByUsername(trimmed);
+        }
+
+        Optional<User> byNickname = userRepository.findByNickname(trimmed);
+        if (byNickname.isPresent()) {
+            return byNickname;
+        }
+
+        return userRepository.findByUsername(trimmed);
+    }
 }

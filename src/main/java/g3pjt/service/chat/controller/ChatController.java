@@ -3,6 +3,7 @@ package g3pjt.service.chat.controller;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;
 
@@ -11,9 +12,12 @@ import g3pjt.service.chat.domain.ChatRoom;
 import g3pjt.service.chat.dto.AddMemberRequest;
 import g3pjt.service.chat.dto.ChatRoomRequest;
 import g3pjt.service.chat.dto.ChatRoomMembersResponse;
+import g3pjt.service.chat.dto.ChatUserSearchResponse;
 import g3pjt.service.chat.dto.InviteLinkResponse;
 import g3pjt.service.chat.dto.JoinRoomRequest;
 import g3pjt.service.chat.service.ChatService;
+import g3pjt.service.user.User;
+import g3pjt.service.user.UserService;
 
 import java.util.List;
 
@@ -24,6 +28,7 @@ import java.util.List;
 public class ChatController {
 
     private final ChatService chatService;
+    private final UserService userService;
 
     @Value("${FRONTEND_URL:}")
     private String frontendUrl;
@@ -35,6 +40,31 @@ public class ChatController {
             org.springframework.security.core.Authentication authentication
     ) {
         return chatService.createRoom(request, authentication);
+    }
+
+    @Operation(summary = "유저 검색(멤버 추가용)", description = "닉네임/이메일(=username)/아이디(username)로 유저를 검색해 표시 정보를 반환합니다.")
+    @GetMapping("/users/search")
+    public ResponseEntity<ChatUserSearchResponse> searchUser(
+            @RequestParam String identifier,
+            org.springframework.security.core.Authentication authentication
+    ) {
+        // 인증은 SecurityConfig(/api/chats/**)에서 강제되지만, 혹시 몰라 NPE 방지
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return ResponseEntity.status(401).build();
+        }
+
+        return userService.findOptionalByUsernameOrNickname(identifier)
+                .map(user -> ResponseEntity.ok(toSearchResponse(user)))
+                .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    private ChatUserSearchResponse toSearchResponse(User user) {
+        Long userId = user.getId();
+        return ChatUserSearchResponse.builder()
+                .userId(userId)
+                .displayName(userService.getDisplayNameByUserId(userId))
+                .username(user.getUsername())
+                .build();
     }
 
     @Operation(summary = "채팅방 멤버 추가", description = "닉네임/이메일(=username)/아이디(username)로 채팅방 멤버를 추가합니다. (방 멤버만 가능)")
