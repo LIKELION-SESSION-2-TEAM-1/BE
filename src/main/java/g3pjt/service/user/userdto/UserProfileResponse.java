@@ -7,6 +7,7 @@ import java.util.ArrayList;
 
 @Data
 public class UserProfileResponse {
+    private Long id;
     private String username;
     private String nickname;
     private String profileImageUrl;
@@ -17,6 +18,7 @@ public class UserProfileResponse {
     private List<String> foodRestrictions;
 
     public UserProfileResponse(User user) {
+        this.id = user.getId();
         this.username = user.getUsername();
         this.nickname = user.getNickname();
         this.profileImageUrl = user.getProfileImageUrl();
