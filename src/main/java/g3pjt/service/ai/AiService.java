@@ -1,4 +1,4 @@
-package g3pjt.service.Ai;
+package g3pjt.service.ai;
 
 import g3pjt.service.chat.ChatDocument;
 import g3pjt.service.chat.ChatRepository;
@@ -14,11 +14,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
-import java.util.*;
-import java.util.*;
-import java.util.stream.Collectors;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import java.util.stream.Collectors;
+import java.util.*;
 
 @Slf4j
 @Service
@@ -81,20 +80,14 @@ public class AiService {
         HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
 
         try {
-            ResponseEntity<Map> response = restTemplate.postForEntity(OPENAI_API_URL, entity, Map.class);
-            
-            if (response.getBody() != null && response.getBody().containsKey("choices")) {
-                List<Map<String, Object>> choices = (List<Map<String, Object>>) response.getBody().get("choices");
-                if (!choices.isEmpty()) {
-                    Map<String, Object> message = (Map<String, Object>) choices.get(0).get("message");
-                    String content = (String) message.get("content");
-                    
-                    if (content != null && !content.trim().isEmpty()) {
-                        return Arrays.stream(content.split(","))
-                                .map(String::trim)
-                                .collect(Collectors.toList());
-                    }
-                }
+            ResponseEntity<String> response = restTemplate.postForEntity(OPENAI_API_URL, entity, String.class);
+            String content = extractAssistantContent(response.getBody());
+
+            if (content != null && !content.trim().isEmpty()) {
+                return Arrays.stream(content.split(","))
+                        .map(String::trim)
+                        .filter(s -> !s.isEmpty())
+                        .collect(Collectors.toList());
             }
         } catch (Exception e) {
             log.error("Error calling OpenAI API", e);
@@ -170,25 +163,37 @@ public class AiService {
         HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
 
         try {
-            ResponseEntity<Map> response = restTemplate.postForEntity(OPENAI_API_URL, entity, Map.class);
+            ResponseEntity<String> response = restTemplate.postForEntity(OPENAI_API_URL, entity, String.class);
+            String content = extractAssistantContent(response.getBody());
 
-            if (response.getBody() != null && response.getBody().containsKey("choices")) {
-                List<Map<String, Object>> choices = (List<Map<String, Object>>) response.getBody().get("choices");
-                if (!choices.isEmpty()) {
-                    Map<String, Object> message = (Map<String, Object>) choices.get(0).get("message");
-                    String content = (String) message.get("content");
-
-                    if (content != null && !content.trim().isEmpty()) {
-                        // Clean up markdown code blocks if present
-                        content = content.replace("```json", "").replace("```", "").trim();
-                        return objectMapper.readValue(content, AiPlanDto.class);
-                    }
-                }
+            if (content != null && !content.trim().isEmpty()) {
+                // Clean up markdown code blocks if present
+                content = content.replace("```json", "").replace("```", "").trim();
+                return objectMapper.readValue(content, AiPlanDto.class);
             }
         } catch (Exception e) {
             log.error("Error calling OpenAI API for plan generation", e);
         }
 
         return new AiPlanDto("Error", "Failed to generate plan.", Collections.emptyList());
+    }
+
+    private String extractAssistantContent(String responseBody) {
+        if (responseBody == null || responseBody.isBlank()) {
+            return null;
+        }
+
+        try {
+            JsonNode root = objectMapper.readTree(responseBody);
+            JsonNode contentNode = root.path("choices").path(0).path("message").path("content");
+            if (contentNode.isMissingNode() || contentNode.isNull()) {
+                return null;
+            }
+            String content = contentNode.asText();
+            return (content == null || content.isBlank()) ? null : content;
+        } catch (Exception e) {
+            log.error("Failed to parse OpenAI response", e);
+            return null;
+        }
     }
 }

@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.security.core.Authentication;
 
 @Tag(name = "User API", description = "회원 관련 API")
 @RestController // JSON 응답을 위한 컨트롤러
@@ -17,7 +18,6 @@ import org.springframework.web.bind.annotation.*;
 public class UserController {
 
     private final UserService userService;
-    private final JwtUtil jwtUtil; // JWT 토큰 생성을 위해 주입
 
     /**
      * 회원가입 API
@@ -69,7 +69,11 @@ public class UserController {
      */
     @Operation(summary = "내 프로필 조회", description = "현재 로그인한 사용자의 상세 정보를 조회합니다.")
     @GetMapping("/profile")
-    public ResponseEntity<g3pjt.service.user.userdto.UserProfileResponse> getMyProfile(org.springframework.security.core.Authentication authentication) {
+    public ResponseEntity<g3pjt.service.user.userdto.UserProfileResponse> getMyProfile(Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
         String username = authentication.getName();
         User user = userService.getUserProfile(username);
         return ResponseEntity.ok(new g3pjt.service.user.userdto.UserProfileResponse(user));
@@ -81,8 +85,15 @@ public class UserController {
     @Operation(summary = "내 프로필 수정", description = "현재 로그인한 사용자의 프로필 정보(닉네임, 여행스타일 등)를 수정합니다.")
     @PutMapping("/profile")
     public ResponseEntity<String> updateProfile(
-            org.springframework.security.core.Authentication authentication,
+            Authentication authentication,
             @RequestBody g3pjt.service.user.userdto.UserUpdateRequest requestDto) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("인증이 필요합니다.");
+        }
+        if (requestDto == null) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("요청 본문이 비어 있습니다.");
+        }
+
         String username = authentication.getName();
         userService.updateProfile(username, requestDto);
         return ResponseEntity.ok("프로필 수정 완료");

@@ -1,4 +1,4 @@
-package g3pjt.service.Ai;
+package g3pjt.service.ai;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;

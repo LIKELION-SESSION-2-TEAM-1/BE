@@ -65,6 +65,9 @@ public class SecurityConfig {
                         // "/api/user/signup", "/api/user/login" URL은 인증 없이 무조건 허용
                         .requestMatchers("/api/user/signup", "/api/user/login").permitAll()
 
+                // 내 프로필 API는 인증 필요
+                .requestMatchers("/api/user/profile").authenticated()
+
                         // (선택) H2 콘솔 접근 허용 (개발용 - 지금은 MySQL 쓰니 불필요)
                         // .requestMatchers("/h2-console/**").permitAll()
 

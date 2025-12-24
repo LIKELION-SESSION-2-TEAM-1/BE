@@ -1,4 +1,4 @@
-package g3pjt.service.Ai;
+package g3pjt.service.ai;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
