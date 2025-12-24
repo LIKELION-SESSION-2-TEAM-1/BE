@@ -8,4 +8,6 @@ public interface ChatRepository extends MongoRepository<ChatDocument, String> {
     List<ChatDocument> findByChatRoomId(Long chatRoomId);
 
     List<ChatDocument> findByChatRoomIdOrderByTimestampAsc(Long chatRoomId);
+
+    void deleteByChatRoomId(Long chatRoomId);
 }

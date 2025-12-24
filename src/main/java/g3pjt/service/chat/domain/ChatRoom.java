@@ -27,6 +27,8 @@ public class ChatRoom {
     private String travelStyle;
     private LocalDateTime createdAt;
 
+    private Long ownerUserId;
+
     private String inviteCode;
     private LocalDateTime inviteCodeCreatedAt;
     

@@ -10,6 +10,7 @@ import g3pjt.service.chat.domain.ChatDocument;
 import g3pjt.service.chat.domain.ChatRoom;
 import g3pjt.service.chat.dto.AddMemberRequest;
 import g3pjt.service.chat.dto.ChatRoomRequest;
+import g3pjt.service.chat.dto.ChatRoomMembersResponse;
 import g3pjt.service.chat.dto.InviteLinkResponse;
 import g3pjt.service.chat.dto.JoinRoomRequest;
 import g3pjt.service.chat.service.ChatService;
@@ -63,6 +64,24 @@ public class ChatController {
             org.springframework.security.core.Authentication authentication
     ) {
         return chatService.joinByInviteCode(roomId, request.getInviteCode(), authentication);
+    }
+
+    @Operation(summary = "채팅방 멤버/인원 조회", description = "채팅방에 참여한 멤버 목록과 인원 수를 조회합니다. (방 멤버만 가능)")
+    @GetMapping("/rooms/{roomId}/members")
+    public ChatRoomMembersResponse getRoomMembers(
+            @PathVariable Long roomId,
+            org.springframework.security.core.Authentication authentication
+    ) {
+        return chatService.getRoomMembers(roomId, authentication);
+    }
+
+    @Operation(summary = "채팅방 삭제(방폭파)", description = "채팅방을 삭제하고 채팅 내역을 모두 삭제합니다. (방장만 가능)")
+    @DeleteMapping("/rooms/{roomId}")
+    public void deleteRoom(
+            @PathVariable Long roomId,
+            org.springframework.security.core.Authentication authentication
+    ) {
+        chatService.deleteRoom(roomId, authentication);
     }
 
     @Operation(summary = "내 채팅방 목록 조회", description = "내가 참여 중인 채팅방 목록을 조회합니다.")

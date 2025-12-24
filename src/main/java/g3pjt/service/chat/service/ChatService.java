@@ -2,7 +2,9 @@ package g3pjt.service.chat.service;
 
 import g3pjt.service.chat.domain.ChatDocument;
 import g3pjt.service.chat.domain.ChatRoom;
+import g3pjt.service.chat.dto.ChatMemberResponse;
 import g3pjt.service.chat.dto.ChatRoomRequest;
+import g3pjt.service.chat.dto.ChatRoomMembersResponse;
 import g3pjt.service.chat.dto.InviteLinkResponse;
 import g3pjt.service.chat.repository.ChatRepository;
 import g3pjt.service.chat.repository.ChatRoomRepository;
@@ -16,6 +18,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -41,6 +44,7 @@ public class ChatService {
                 .endDate(request.getEndDate())
                 .travelStyle(request.getTravelStyle())
                 .createdAt(LocalDateTime.now())
+            .ownerUserId(user.getId())
                 .memberIds(members)
                 .build();
 
@@ -55,6 +59,41 @@ public class ChatService {
 
     public List<ChatDocument> getChatHistory(Long chatRoomId) {
         return chatRepository.findByChatRoomIdOrderByTimestampAsc(chatRoomId);
+    }
+
+    public ChatRoomMembersResponse getRoomMembers(Long roomId, Authentication authentication) {
+        ChatRoom room = getRoomOrThrow(roomId);
+
+        Long requesterId = getRequesterUserId(authentication);
+        ensureMember(room, requesterId);
+
+        List<ChatMemberResponse> members = room.getMemberIds().stream()
+                .map(memberId -> ChatMemberResponse.builder()
+                        .userId(memberId)
+                        .displayName(userService.getDisplayNameByUserId(memberId))
+                        .build())
+                .collect(Collectors.toList());
+
+        return ChatRoomMembersResponse.builder()
+                .roomId(roomId)
+                .memberCount(members.size())
+                .members(members)
+                .build();
+    }
+
+    public void deleteRoom(Long roomId, Authentication authentication) {
+        ChatRoom room = getRoomOrThrow(roomId);
+
+        Long requesterId = getRequesterUserId(authentication);
+        ensureMember(room, requesterId);
+
+        Long ownerId = resolveOwnerUserId(room);
+        if (ownerId == null || !ownerId.equals(requesterId)) {
+            throw new IllegalArgumentException("방장만 방을 삭제할 수 있습니다.");
+        }
+
+        chatRepository.deleteByChatRoomId(roomId);
+        chatRoomRepository.delete(room);
     }
 
     public ChatRoom addMemberByIdentifier(Long roomId, String identifier, Authentication authentication) {
@@ -129,5 +168,16 @@ public class ChatService {
         if (userId == null || !room.getMemberIds().contains(userId)) {
             throw new IllegalArgumentException("채팅방 멤버만 수행할 수 있습니다.");
         }
+    }
+
+    private Long resolveOwnerUserId(ChatRoom room) {
+        if (room.getOwnerUserId() != null) {
+            return room.getOwnerUserId();
+        }
+        // legacy fallback: creator was added first
+        if (room.getMemberIds() != null && !room.getMemberIds().isEmpty()) {
+            return room.getMemberIds().get(0);
+        }
+        return null;
     }
 }
