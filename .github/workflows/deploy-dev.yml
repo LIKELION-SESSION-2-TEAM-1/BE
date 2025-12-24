@@ -1,0 +1,63 @@
+name: Deploy to Cloudtype (dev)
+
+on:
+  push:
+    branches:
+      - dev
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Cloudtype GitHub Actions
+      - name: Connect deploy key
+        uses: cloudtype-github-actions/connect@v1
+        with:
+          token: ${{ secrets.CLOUDTYPE_TOKEN }}
+          # GitHub personal access token (PAT) with repo read access if needed
+          ghtoken: ${{ secrets.GHP_TOKEN }}
+
+      - name: Deploy
+        uses: cloudtype-github-actions/deploy@v1
+        with:
+          token: ${{ secrets.CLOUDTYPE_TOKEN }}
+          # Cloudtype project slug (example: owner/project)
+          project: ${{ secrets.CLOUDTYPE_PROJECT }}
+          # Cloudtype stage name (must exist in Cloudtype)
+          stage: ${{ secrets.CLOUDTYPE_STAGE }}
+          yaml: |
+            name: beeee
+            app: dockerfile
+            options:
+              ports: "8080"
+              dockerfile: Dockerfile
+              env:
+                - name: DB_URL
+                  value: ${{ secrets.DB_URL }}
+                - name: DB_USERNAME
+                  value: ${{ secrets.DB_USERNAME }}
+                - name: DB_PASSWORD
+                  value: ${{ secrets.DB_PASSWORD }}
+                - name: JWT_SECRET_KEY
+                  value: ${{ secrets.JWT_SECRET_KEY }}
+                - name: MONGODB_URI
+                  value: ${{ secrets.MONGODB_URI }}
+                - name: OPENAI_API_KEY
+                  value: ${{ secrets.OPENAI_API_KEY }}
+                - name: PYTHON_EXECUTABLE
+                  value: ${{ secrets.PYTHON_EXECUTABLE }}
+                - name: GOOGLE_CLIENT_ID
+                  value: ${{ secrets.GOOGLE_CLIENT_ID }}
+                - name: GOOGLE_CLIENT_SECRET
+                  value: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+                - name: FRONTEND_URL
+                  value: ${{ secrets.FRONTEND_URL }}
+              args: []
+            context:
+              git:
+                url: git@github.com:${{ github.repository }}.git
+                ref: ${{ github.ref }}
