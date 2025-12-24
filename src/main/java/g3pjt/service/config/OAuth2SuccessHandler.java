@@ -6,22 +6,41 @@ import g3pjt.service.user.jwt.JwtUtil;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import lombok.RequiredArgsConstructor;
+import jakarta.servlet.http.Cookie;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 
 import java.io.IOException;
 import java.util.Map;
 import java.util.UUID;
+import java.util.Arrays;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Component
-@RequiredArgsConstructor
 public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
 
     private final JwtUtil jwtUtil;
     private final UserRepository userRepository;
+
+    private final Set<String> allowedRedirectUris;
+
+    public OAuth2SuccessHandler(
+            JwtUtil jwtUtil,
+            UserRepository userRepository,
+            @org.springframework.beans.factory.annotation.Value("${app.oauth2.redirect-uri-allowlist:http://localhost:3000/home,https://tokplan.vercel.app/home}")
+            String allowlist
+    ) {
+        this.jwtUtil = jwtUtil;
+        this.userRepository = userRepository;
+        this.allowedRedirectUris = Arrays.stream(allowlist.split(","))
+                .map(String::trim)
+                .filter(StringUtils::hasText)
+                .collect(Collectors.toUnmodifiableSet());
+    }
 
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response, Authentication authentication) throws IOException, ServletException {
@@ -45,18 +64,48 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
         // "Bearer " 접두사 제거 (URL 파라미터로 전달하기 편하게)
         String cleanToken = token.replace(JwtUtil.BEARER_PREFIX, "");
 
-        // 5. 프론트엔드로 리디렉션 (토큰을 쿼리 파라미터로 전달)
-        // 로컬 테스트 시: "http://localhost:5173/?token=" + cleanToken
-        // 배포 시: "https://tokplan.vercel.app/?token=" + cleanToken
-        // 5. 프론트엔드로 리디렉션
-        // application.properties의 app.frontend.url 값을 사용하거나 기본값 사용
-        String frontendUrl = System.getenv("FRONTEND_URL");
-        if (frontendUrl == null || frontendUrl.isEmpty()) {
-            frontendUrl = "https://tokplan.vercel.app"; // 기본값
+        // 5. Determine redirect destination from allowlisted redirect_uri (captured in cookie)
+        String redirectUri = readRedirectUriCookie(request);
+
+        // Fallback to env FRONTEND_URL if cookie is missing
+        if (!StringUtils.hasText(redirectUri)) {
+            String frontendUrl = System.getenv("FRONTEND_URL");
+            if (!StringUtils.hasText(frontendUrl)) {
+                frontendUrl = "https://tokplan.vercel.app";
+            }
+            redirectUri = frontendUrl + "/home";
         }
-        
-        String targetUrl = frontendUrl + "/home?token=" + cleanToken;
-        
+
+        if (!allowedRedirectUris.contains(redirectUri)) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid redirect_uri");
+            return;
+        }
+
+        clearRedirectUriCookie(response);
+
+        // Recommend fragment to reduce referrer/log exposure
+        String targetUrl = redirectUri + "#token=" + cleanToken;
         response.sendRedirect(targetUrl);
+    }
+
+    private String readRedirectUriCookie(HttpServletRequest request) {
+        Cookie[] cookies = request.getCookies();
+        if (cookies == null) {
+            return null;
+        }
+        for (Cookie cookie : cookies) {
+            if (OAuth2RedirectUriCookieFilter.REDIRECT_URI_COOKIE.equals(cookie.getName())) {
+                String value = cookie.getValue();
+                return StringUtils.hasText(value) ? value.trim() : null;
+            }
+        }
+        return null;
+    }
+
+    private void clearRedirectUriCookie(HttpServletResponse response) {
+        Cookie cookie = new Cookie(OAuth2RedirectUriCookieFilter.REDIRECT_URI_COOKIE, "");
+        cookie.setPath("/");
+        cookie.setMaxAge(0);
+        response.addCookie(cookie);
     }
 }

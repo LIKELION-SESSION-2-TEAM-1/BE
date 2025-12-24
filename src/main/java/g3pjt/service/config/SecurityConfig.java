@@ -13,6 +13,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequestRedirectFilter;
 
 import lombok.RequiredArgsConstructor;
 
@@ -23,6 +24,7 @@ public class SecurityConfig {
 
     private final JwtUtil jwtUtil;
     private final OAuth2SuccessHandler oAuth2SuccessHandler;
+    private final OAuth2RedirectUriCookieFilter oAuth2RedirectUriCookieFilter;
 
 //    public SecurityConfig() {
 //        System.out.println("*** SecurityConfig Loaded ***");
@@ -92,6 +94,7 @@ public class SecurityConfig {
         );
         
         // 필터 추가
+        http.addFilterBefore(oAuth2RedirectUriCookieFilter, OAuth2AuthorizationRequestRedirectFilter.class);
         http.addFilterBefore(jwtAuthorizationFilter(), UsernamePasswordAuthenticationFilter.class);
 
         // (선택) H2 콘솔 iframe 허용
