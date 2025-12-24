@@ -47,10 +47,22 @@ public class JwtAuthorizationFilter extends OncePerRequestFilter {
 
     private String resolveToken(HttpServletRequest request) {
         String bearerToken = request.getHeader(JwtUtil.AUTHORIZATION_HEADER);
-        if (StringUtils.hasText(bearerToken) && bearerToken.startsWith(JwtUtil.BEARER_PREFIX)) {
-            return bearerToken.substring(7);
+        if (!StringUtils.hasText(bearerToken)) {
+            return null;
         }
-        return null;
+
+        String token = bearerToken.trim();
+
+        // Tolerate common frontend mistakes:
+        // - sending raw JWT without 'Bearer '
+        // - accidentally prepending 'Bearer ' twice
+        for (int i = 0; i < 2; i++) {
+            if (token.startsWith(JwtUtil.BEARER_PREFIX)) {
+                token = token.substring(JwtUtil.BEARER_PREFIX.length()).trim();
+            }
+        }
+
+        return token.isEmpty() ? null : token;
     }
 
     public void setAuthentication(String username) {
