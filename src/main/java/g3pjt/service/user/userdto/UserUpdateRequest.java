@@ -1,5 +1,6 @@
 package g3pjt.service.user.userdto;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import lombok.Data;
 import java.util.List;
 
@@ -12,6 +13,7 @@ public class UserUpdateRequest {
     private String profileImageUrl;
 
     @io.swagger.v3.oas.annotations.media.Schema(description = "생년월일 (YYYY-MM-DD)", example = "1999-01-01")
+    @JsonAlias({"birthdate", "birth_date"})
     private String birthDate;
 
     @io.swagger.v3.oas.annotations.media.Schema(description = "이동 페이스 (느림/보통/빠름)", example = "보통")

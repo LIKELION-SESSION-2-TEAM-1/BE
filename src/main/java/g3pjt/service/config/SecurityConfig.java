@@ -68,6 +68,9 @@ public class SecurityConfig {
                 // 내 프로필 API는 인증 필요
                 .requestMatchers("/api/user/profile").authenticated()
 
+                        // 회원 탈퇴는 인증 필요
+                        .requestMatchers(org.springframework.http.HttpMethod.DELETE, "/api/user").authenticated()
+
                         // (선택) H2 콘솔 접근 허용 (개발용 - 지금은 MySQL 쓰니 불필요)
                         // .requestMatchers("/h2-console/**").permitAll()
 

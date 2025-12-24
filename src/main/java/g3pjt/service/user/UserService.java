@@ -8,6 +8,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
+
 @Service
 @RequiredArgsConstructor // final 필드에 대한 생성자를 자동으로 만들어줍니다.
 public class UserService {
@@ -77,16 +80,43 @@ public class UserService {
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
 
+        String birthDate = normalizeBirthDate(request.getBirthDate());
+
         user.updateProfile(
                 request.getNickname(),
                 request.getProfileImageUrl(),
-                request.getBirthDate(),
+                birthDate,
                 request.getTravelPace(),
                 request.getDailyRhythm(),
                 request.getFoodPreferences(),
                 request.getFoodRestrictions()
         );
         // Transactional 어노테이션 덕분에 save 호출 없이도 더티 체킹으로 업데이트됨
+    }
+
+    private String normalizeBirthDate(String birthDate) {
+        if (birthDate == null) {
+            return null;
+        }
+        String trimmed = birthDate.trim();
+        if (trimmed.isEmpty()) {
+            return null;
+        }
+
+        // Expect ISO local date: YYYY-MM-DD
+        try {
+            LocalDate parsed = LocalDate.parse(trimmed);
+            return parsed.toString();
+        } catch (DateTimeParseException e) {
+            throw new IllegalArgumentException("생년월일 형식이 올바르지 않습니다. YYYY-MM-DD 형식으로 보내주세요.");
+        }
+    }
+
+    @org.springframework.transaction.annotation.Transactional
+    public void deleteAccount(String username) {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+        userRepository.delete(user);
     }
 
     /**

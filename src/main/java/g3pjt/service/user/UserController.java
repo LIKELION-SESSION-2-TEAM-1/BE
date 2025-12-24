@@ -99,6 +99,17 @@ public class UserController {
         return ResponseEntity.ok("프로필 수정 완료");
     }
 
+    @Operation(summary = "회원 탈퇴", description = "현재 로그인한 사용자를 삭제합니다.")
+    @DeleteMapping
+    public ResponseEntity<String> deleteAccount(Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("인증이 필요합니다.");
+        }
+        String username = authentication.getName();
+        userService.deleteAccount(username);
+        return ResponseEntity.ok("회원 탈퇴 완료");
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<String> handleException(IllegalArgumentException e) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
