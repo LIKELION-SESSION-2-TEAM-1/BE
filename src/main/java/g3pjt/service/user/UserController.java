@@ -64,12 +64,15 @@ public class UserController {
     /**
      * 내 프로필 조회
      */
+    /**
+     * 내 프로필 조회
+     */
     @Operation(summary = "내 프로필 조회", description = "현재 로그인한 사용자의 상세 정보를 조회합니다.")
     @GetMapping("/profile")
-    public ResponseEntity<User> getMyProfile(org.springframework.security.core.Authentication authentication) {
+    public ResponseEntity<g3pjt.service.user.userdto.UserProfileResponse> getMyProfile(org.springframework.security.core.Authentication authentication) {
         String username = authentication.getName();
         User user = userService.getUserProfile(username);
-        return ResponseEntity.ok(user);
+        return ResponseEntity.ok(new g3pjt.service.user.userdto.UserProfileResponse(user));
     }
 
     /**
