@@ -1,5 +1,6 @@
-package g3pjt.service.chat;
+package g3pjt.service.chat.domain;
 
+import g3pjt.service.chat.dto.ChatDto;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;

@@ -1,5 +1,9 @@
-package g3pjt.service.chat;
+package g3pjt.service.chat.service;
 
+import g3pjt.service.chat.domain.ChatRoom;
+import g3pjt.service.chat.dto.ChatRoomRequest;
+import g3pjt.service.chat.repository.ChatRepository;
+import g3pjt.service.chat.repository.ChatRoomRepository;
 import g3pjt.service.user.User;
 import g3pjt.service.user.UserService;
 import org.junit.jupiter.api.Test;

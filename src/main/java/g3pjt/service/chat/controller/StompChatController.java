@@ -1,5 +1,8 @@
-package g3pjt.service.chat;
+package g3pjt.service.chat.controller;
 
+import g3pjt.service.chat.domain.ChatDocument;
+import g3pjt.service.chat.dto.ChatDto;
+import g3pjt.service.chat.repository.ChatRepository;
 import g3pjt.service.user.UserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

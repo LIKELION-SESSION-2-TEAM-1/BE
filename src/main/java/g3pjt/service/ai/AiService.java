@@ -1,7 +1,7 @@
 package g3pjt.service.ai;
 
-import g3pjt.service.chat.ChatDocument;
-import g3pjt.service.chat.ChatRepository;
+import g3pjt.service.chat.domain.ChatDocument;
+import g3pjt.service.chat.repository.ChatRepository;
 import g3pjt.service.crawling.CrawlingService;
 import g3pjt.service.crawling.StoreDto;
 import lombok.RequiredArgsConstructor;

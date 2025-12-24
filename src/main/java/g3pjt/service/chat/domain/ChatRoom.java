@@ -1,4 +1,4 @@
-package g3pjt.service.chat;
+package g3pjt.service.chat.domain;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;

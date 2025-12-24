@@ -1,9 +1,18 @@
-package g3pjt.service.chat;
+package g3pjt.service.chat.controller;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;
+
+import g3pjt.service.chat.domain.ChatDocument;
+import g3pjt.service.chat.domain.ChatRoom;
+import g3pjt.service.chat.dto.AddMemberRequest;
+import g3pjt.service.chat.dto.ChatRoomRequest;
+import g3pjt.service.chat.dto.InviteLinkResponse;
+import g3pjt.service.chat.dto.JoinRoomRequest;
+import g3pjt.service.chat.service.ChatService;
 
 import java.util.List;
 
@@ -15,7 +24,7 @@ public class ChatController {
 
     private final ChatService chatService;
 
-    @org.springframework.beans.factory.annotation.Value("${FRONTEND_URL:}")
+    @Value("${FRONTEND_URL:}")
     private String frontendUrl;
 
     @Operation(summary = "채팅방 생성", description = "새로운 채팅방을 생성합니다.")

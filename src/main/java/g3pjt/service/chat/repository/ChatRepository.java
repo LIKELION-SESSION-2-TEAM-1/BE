@@ -1,5 +1,6 @@
-package g3pjt.service.chat;
+package g3pjt.service.chat.repository;
 
+import g3pjt.service.chat.domain.ChatDocument;
 import org.springframework.data.mongodb.repository.MongoRepository;
 import java.util.List;
 
