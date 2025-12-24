@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -48,5 +49,79 @@ public class ChatService {
 
     public List<ChatDocument> getChatHistory(Long chatRoomId) {
         return chatRepository.findByChatRoomIdOrderByTimestampAsc(chatRoomId);
+    }
+
+    public ChatRoom addMemberByIdentifier(Long roomId, String identifier, Authentication authentication) {
+        ChatRoom room = getRoomOrThrow(roomId);
+
+        Long requesterId = getRequesterUserId(authentication);
+        ensureMember(room, requesterId);
+
+        Long targetUserId = userService.findByUsernameOrNickname(identifier).getId();
+        if (!room.getMemberIds().contains(targetUserId)) {
+            room.getMemberIds().add(targetUserId);
+            room = chatRoomRepository.save(room);
+        }
+        return room;
+    }
+
+    public InviteLinkResponse generateInviteLink(Long roomId, Authentication authentication, String inviteBaseUrl) {
+        ChatRoom room = getRoomOrThrow(roomId);
+
+        Long requesterId = getRequesterUserId(authentication);
+        ensureMember(room, requesterId);
+
+        String code = UUID.randomUUID().toString().replace("-", "");
+        room.setInviteCode(code);
+        room.setInviteCodeCreatedAt(LocalDateTime.now());
+        chatRoomRepository.save(room);
+
+        String inviteUrl = null;
+        if (inviteBaseUrl != null && !inviteBaseUrl.trim().isEmpty()) {
+            String base = inviteBaseUrl.trim();
+            inviteUrl = base + "/chat/join?roomId=" + roomId + "&code=" + code;
+        }
+
+        return InviteLinkResponse.builder()
+                .roomId(roomId)
+                .inviteCode(code)
+                .inviteUrl(inviteUrl)
+                .build();
+    }
+
+    public ChatRoom joinByInviteCode(Long roomId, String inviteCode, Authentication authentication) {
+        if (inviteCode == null || inviteCode.trim().isEmpty()) {
+            throw new IllegalArgumentException("inviteCode가 비어있습니다.");
+        }
+        ChatRoom room = getRoomOrThrow(roomId);
+        if (room.getInviteCode() == null || !room.getInviteCode().equals(inviteCode.trim())) {
+            throw new IllegalArgumentException("초대 코드가 올바르지 않습니다.");
+        }
+
+        Long requesterId = getRequesterUserId(authentication);
+        if (!room.getMemberIds().contains(requesterId)) {
+            room.getMemberIds().add(requesterId);
+            room = chatRoomRepository.save(room);
+        }
+        return room;
+    }
+
+    private ChatRoom getRoomOrThrow(Long roomId) {
+        ChatRoom room = chatRoomRepository.findByRoomId(roomId);
+        if (room == null) {
+            throw new IllegalArgumentException("채팅방을 찾을 수 없습니다.");
+        }
+        return room;
+    }
+
+    private Long getRequesterUserId(Authentication authentication) {
+        String username = authentication.getName();
+        return userService.getUserProfile(username).getId();
+    }
+
+    private void ensureMember(ChatRoom room, Long userId) {
+        if (userId == null || !room.getMemberIds().contains(userId)) {
+            throw new IllegalArgumentException("채팅방 멤버만 수행할 수 있습니다.");
+        }
     }
 }

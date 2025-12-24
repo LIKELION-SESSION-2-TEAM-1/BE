@@ -26,6 +26,9 @@ public class ChatRoom {
     private LocalDate endDate;
     private String travelStyle;
     private LocalDateTime createdAt;
+
+    private String inviteCode;
+    private LocalDateTime inviteCodeCreatedAt;
     
     // 채팅방 참여자 ID 목록 (User.id)
     @Builder.Default

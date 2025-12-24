@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor // final 필드에 대한 생성자를 자동으로 만들어줍니다.
@@ -124,6 +125,32 @@ public class UserService {
      */
     public User getUserProfile(String username) {
         return userRepository.findByUsername(username)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+    }
+
+    /**
+     * identifier로 사용자 조회
+     * - email/username: user.username (대부분 이메일 또는 아이디)
+     * - nickname: user.nickname
+     */
+    public User findByUsernameOrNickname(String identifier) {
+        if (identifier == null || identifier.trim().isEmpty()) {
+            throw new IllegalArgumentException("사용자 식별자가 비어있습니다.");
+        }
+        String trimmed = identifier.trim();
+
+        // 이메일 형태면 username으로 우선 조회
+        if (trimmed.contains("@")) {
+            return userRepository.findByUsername(trimmed)
+                    .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+        }
+
+        Optional<User> byNickname = userRepository.findByNickname(trimmed);
+        if (byNickname.isPresent()) {
+            return byNickname.get();
+        }
+
+        return userRepository.findByUsername(trimmed)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
     }
 }
