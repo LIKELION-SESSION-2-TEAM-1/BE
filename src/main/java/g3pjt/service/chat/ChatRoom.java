@@ -7,6 +7,9 @@ import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+
 @Data
 @Builder
 @NoArgsConstructor
@@ -18,6 +21,11 @@ public class ChatRoom {
 
     private Long roomId; // Numeric ID used in ChatDocument
     private String name;
+
+    private LocalDate startDate;
+    private LocalDate endDate;
+    private String travelStyle;
+    private LocalDateTime createdAt;
     
     // 채팅방 참여자 ID 목록 (User.id)
     @Builder.Default

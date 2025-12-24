@@ -5,6 +5,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
+
 import java.time.Instant;
 
 @Data
@@ -22,6 +24,8 @@ public class ChatDto {
     private String message;
 
     private MessageType messageType;
-    private Instant ts;
+
+    @JsonAlias({"ts"})
+    private Instant timestamp;
 
 }

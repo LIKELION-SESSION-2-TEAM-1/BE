@@ -31,7 +31,7 @@ public class StompChatController {
 
         dto.setChatRoomId(chatRoomId);
         dto.setSenderName(displayName);
-        dto.setTs(Instant.now());
+        dto.setTimestamp(Instant.now());
 
         log.info("[Room {}] {}({}) -> {}", chatRoomId, dto.getChatRoomId(), displayName, dto.getMessage());
 
@@ -44,7 +44,7 @@ public class StompChatController {
                 .receiverName(dto.getReceiverName())
                 .message(dto.getMessage())
                 .messageType(dto.getMessageType())
-                .ts(dto.getTs())
+            .timestamp(dto.getTimestamp())
                 .build();
         chatRepository.save(chatDocument);
 

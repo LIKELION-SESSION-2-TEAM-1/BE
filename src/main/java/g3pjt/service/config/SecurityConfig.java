@@ -70,6 +70,9 @@ public class SecurityConfig {
                 // 내 프로필 API는 인증 필요
                 .requestMatchers("/api/user/profile").authenticated()
 
+                    // 채팅 REST API는 인증 필요
+                    .requestMatchers("/api/chats/**").authenticated()
+
                         // 회원 탈퇴는 인증 필요
                         .requestMatchers(org.springframework.http.HttpMethod.DELETE, "/api/user").authenticated()
 
