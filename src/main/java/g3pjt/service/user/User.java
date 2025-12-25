@@ -48,8 +48,12 @@ public class User {
     private java.util.List<String> foodRestrictions = new java.util.ArrayList<>();
 
     // 최근 검색 자동 저장 설정
-    @Column(nullable = false)
-    private boolean recentSearchEnabled = true;
+    @Column(name = "recent_search_enabled")
+    private Boolean recentSearchEnabled = true;
+
+    public boolean isRecentSearchEnabled() {
+        return recentSearchEnabled == null ? true : recentSearchEnabled;
+    }
 
     public User(String username, String password) {
         this.username = username;
