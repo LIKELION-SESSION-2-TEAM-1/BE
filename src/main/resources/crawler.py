@@ -1,6 +1,7 @@
 import sys
 import json
 import re
+from urllib.parse import quote
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -39,10 +40,15 @@ def main(keywords):
 
     try:
         base_url = "https://map.kakao.com/?q="
+
+        # 단일 키워드 검색(프론트 검색 화면)인 경우 상위 N개 반환
+        # 여러 키워드 배치(AI 등)인 경우 키워드당 1개(속도) 유지
+        max_items_per_keyword = 10 if len(keywords) == 1 else 1
         
         for keyword in keywords:
             try:
-                driver.get(base_url + keyword)
+                encoded_keyword = quote(keyword)
+                driver.get(base_url + encoded_keyword)
                 
                 # 검색 결과 리스트 대기 (최대 3초)
                 try:
@@ -50,41 +56,55 @@ def main(keywords):
                     places_container = WebDriverWait(driver, 3).until(
                         EC.presence_of_element_located((By.ID, "info.search.place.list"))
                     )
-                    # 첫 번째 결과만 가져옴 (속도 최적화)
-                    place = places_container.find_element(By.CSS_SELECTOR, "li.PlaceItem")
-                    
-                    # 데이터 추출
-                    name = get_text(place, 'a.link_name', keyword)
-                    category = get_text(place, 'span.subcategory', "기타")
-                    
-                    # 주소 추출 (여러 선택자 시도)
-                    address = get_text(place, 'div.addr > p', "")
-                    if not address:
-                        address = get_text(place, 'p[data-id="address"]', "정보 없음")
 
-                    rating = get_text(place, 'span.score > em.num', "0.0")
-                    
-                    # 이미지
-                    try:
-                        image_url = place.find_element(By.CSS_SELECTOR, 'div.photo_area a.link_photo').get_attribute('style')
-                        # style="background-image: url('...')" 형태에서 URL 추출
-                        match = re.search(r'url\("?(.+?)"?\)', image_url)
-                        if match:
-                            image_url = match.group(1)
-                        else:
+                    places = places_container.find_elements(By.CSS_SELECTOR, "li.PlaceItem")
+                    if not places:
+                        raise NoSuchElementException("No PlaceItem")
+
+                    for place in places[:max_items_per_keyword]:
+                        # 데이터 추출
+                        name = get_text(place, 'a.link_name', keyword)
+                        category = get_text(place, 'span.subcategory', "기타")
+                        
+                        # 주소 추출 (여러 선택자 시도)
+                        address = get_text(place, 'div.addr > p', "")
+                        if not address:
+                            address = get_text(place, 'p[data-id="address"]', "정보 없음")
+
+                        rating = get_text(place, 'span.score > em.num', "0.0")
+
+                        # 링크 (가능하면 항목 링크, 아니면 검색 링크)
+                        link = ""
+                        try:
+                            href = place.find_element(By.CSS_SELECTOR, 'a.link_name').get_attribute('href')
+                            if href and href.startswith('http'):
+                                link = href
+                        except:
+                            link = ""
+                        if not link:
+                            link = base_url + encoded_keyword
+                        
+                        # 이미지
+                        try:
+                            image_url = place.find_element(By.CSS_SELECTOR, 'div.photo_area a.link_photo').get_attribute('style')
+                            # style="background-image: url('...')" 형태에서 URL 추출
+                            match = re.search(r'url\("?(.+?)"?\)', image_url)
+                            if match:
+                                image_url = match.group(1)
+                            else:
+                                image_url = ""
+                        except:
                             image_url = ""
-                    except:
-                        image_url = ""
 
-                    all_results.append({
-                        "storeName": name,
-                        "category": category,
-                        "address": address,
-                        "rating": rating,
-                        "reviewCount": "0", # 리뷰 수는 생략하거나 별도 파싱 필요
-                        "link": "",
-                        "imageUrl": image_url
-                    })
+                        all_results.append({
+                            "storeName": name,
+                            "category": category,
+                            "address": address,
+                            "rating": rating,
+                            "reviewCount": "0", # 리뷰 수는 생략하거나 별도 파싱 필요
+                            "link": link,
+                            "imageUrl": image_url
+                        })
 
                 except (TimeoutException, NoSuchElementException):
                     # 검색 결과가 없는 경우 더미 데이터 추가
@@ -94,7 +114,7 @@ def main(keywords):
                         "address": "정보 없음",
                         "rating": "0.0",
                         "reviewCount": "0",
-                        "link": "",
+                        "link": base_url + quote(keyword),
                         "imageUrl": ""
                     })
 
