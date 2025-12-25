@@ -16,6 +16,7 @@ public class UserProfileResponse {
     private String dailyRhythm;
     private List<String> foodPreferences;
     private List<String> foodRestrictions;
+    private boolean recentSearchEnabled;
 
     public UserProfileResponse(User user) {
         this.id = user.getId();
@@ -27,5 +28,6 @@ public class UserProfileResponse {
         this.dailyRhythm = user.getDailyRhythm();
         this.foodPreferences = user.getFoodPreferences() != null ? user.getFoodPreferences() : new ArrayList<>();
         this.foodRestrictions = user.getFoodRestrictions() != null ? user.getFoodRestrictions() : new ArrayList<>();
+        this.recentSearchEnabled = user.isRecentSearchEnabled();
     }
 }

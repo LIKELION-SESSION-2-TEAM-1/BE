@@ -57,6 +57,55 @@
 
 ---
 
+## ⭐ 5. 여행지 즐겨찾기 (Favorites)
+**Base URL**: `/api/favorites`
+
+| Method | Endpoint | 설명 | 인증 |
+| :--- | :--- | :--- | :--- |
+| `POST` | `/` | 즐겨찾기 추가 | O |
+| `GET` | `/` | 내 즐겨찾기 목록 조회 | O |
+| `DELETE` | `/{favoriteId}` | 즐겨찾기 삭제 | O |
+
+### POST /api/favorites (Body 예시)
+```json
+{
+   "storeName": "파라다이스 호텔 부산",
+   "category": "숙소",
+   "address": "부산 ...",
+   "rating": "4.6",
+   "reviewCount": "0",
+   "link": "",
+   "imageUrl": "https://..."
+}
+```
+
+---
+
+## 🔎 6. 최근 검색 (Recent Searches)
+**Base URL**: `/api/searches/recent`
+
+| Method | Endpoint | 설명 | 인증 |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/` | 내 최근 검색(검색어) 목록 | O |
+| `POST` | `/` | 최근 검색 추가(자동저장 ON일 때만 저장) | O |
+| `DELETE` | `/` | 최근 검색 전체 삭제 | O |
+| `DELETE` | `/{recentSearchId}` | 최근 검색 1개 삭제 | O |
+
+### POST /api/searches/recent (Body 예시)
+```json
+{ "keyword": "부산" }
+```
+
+### 자동저장 토글
+최근 검색 자동저장 ON/OFF는 기존 프로필 수정 API로 제어합니다.
+
+- `PUT /api/user/profile`
+```json
+{ "recentSearchEnabled": false }
+```
+
+---
+
 ## ✅ 연결 테스트 체크리스트 (프론트)
 1. **회원가입**: 가입 후 바로 `/api/user/profile` 조회했을 때 `nickname`이 아이디와 같은지 확인.
 2. **프로필 수정**: 닉네임만 바꿔보고, 다른 정보(생일 등)가 날라가지 않고 유지되는지 확인.
