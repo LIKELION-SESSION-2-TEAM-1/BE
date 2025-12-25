@@ -3,10 +3,15 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
+import org.springframework.util.FileCopyUtils;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -15,9 +20,13 @@ import java.util.stream.Collectors;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 @Service
 public class CrawlingService {
+
+    private static final Logger log = LoggerFactory.getLogger(CrawlingService.class);
 
     @org.springframework.beans.factory.annotation.Value("${python.executable.path:python}")
     private String configuredPythonPath;
@@ -31,7 +40,7 @@ public class CrawlingService {
 
         try {
             ClassPathResource resource = new ClassPathResource("crawler.py");
-            String scriptPath = resource.getFile().getAbsolutePath();
+            String scriptPath = resolveScriptPath(resource);
             String pythonExecutable = resolvePythonExecutable();
             System.out.println("Using Python executable: " + pythonExecutable);
 
@@ -44,6 +53,10 @@ public class CrawlingService {
             ProcessBuilder processBuilder = new ProcessBuilder(command);
             Map<String, String> env = processBuilder.environment();
             env.put("PYTHONIOENCODING", "UTF-8");
+            env.putIfAbsent("PYTHONUTF8", "1");
+
+            // stderr도 같이 읽어 원인 파악 가능하게
+            processBuilder.redirectErrorStream(true);
 
             Process process = processBuilder.start();
 
@@ -61,11 +74,12 @@ public class CrawlingService {
                 ObjectMapper objectMapper = new ObjectMapper();
                 return objectMapper.readValue(jsonResult, new TypeReference<>() {});
             } else {
+                log.warn("Crawler process finished with exitCode={} outputSnippet={}", exitCode, snippet(jsonResult));
                 return new ArrayList<>();
             }
 
         } catch (Exception e) {
-            e.printStackTrace();
+            log.warn("Crawler execution failed: {}", e.toString());
             return new ArrayList<>();
         }
     }
@@ -109,5 +123,30 @@ public class CrawlingService {
         } catch (IOException | InterruptedException e) {
             return false;
         }
+    }
+
+    private String resolveScriptPath(ClassPathResource resource) throws IOException {
+        // IDE/로컬(클래스패스가 실제 파일)에서는 getFile()이 되지만,
+        // 배포(jar)에서는 리소스가 파일이 아니어서 getFile()이 실패한다.
+        try {
+            return resource.getFile().getAbsolutePath();
+        } catch (IOException ignored) {
+            // jar 실행 환경: 리소스를 임시 파일로 추출
+            Path temp = Files.createTempFile("crawler-", ".py");
+            temp.toFile().deleteOnExit();
+            try (InputStream in = resource.getInputStream(); OutputStream out = Files.newOutputStream(temp)) {
+                FileCopyUtils.copy(in, out);
+            }
+            return temp.toAbsolutePath().toString();
+        }
+    }
+
+    private String snippet(String body) {
+        if (body == null) {
+            return "";
+        }
+        String trimmed = body.trim();
+        int limit = Math.min(trimmed.length(), 300);
+        return trimmed.substring(0, limit).replaceAll("\\s+", " ");
     }
 }
