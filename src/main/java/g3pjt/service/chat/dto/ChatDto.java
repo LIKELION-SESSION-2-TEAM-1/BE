@@ -1,10 +1,11 @@
-package g3pjt.service.chat;
+package g3pjt.service.chat.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.antlr.v4.runtime.misc.NotNull;
+
+import com.fasterxml.jackson.annotation.JsonAlias;
 
 import java.time.Instant;
 
@@ -23,6 +24,8 @@ public class ChatDto {
     private String message;
 
     private MessageType messageType;
-    private Instant ts;
+
+    @JsonAlias({"ts"})
+    private Instant timestamp;
 
 }

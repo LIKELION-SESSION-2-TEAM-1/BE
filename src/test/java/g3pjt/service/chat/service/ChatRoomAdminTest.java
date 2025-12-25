@@ -1,0 +1,49 @@
+package g3pjt.service.chat.service;
+
+import g3pjt.service.chat.domain.ChatRoom;
+import g3pjt.service.chat.repository.ChatRepository;
+import g3pjt.service.chat.repository.ChatRoomRepository;
+import g3pjt.service.user.User;
+import g3pjt.service.user.UserService;
+import org.junit.jupiter.api.Test;
+import org.springframework.security.core.Authentication;
+
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.*;
+
+class ChatRoomAdminTest {
+
+    @Test
+    void deleteRoom_requiresOwner() {
+        ChatRoomRepository chatRoomRepository = mock(ChatRoomRepository.class);
+        ChatRepository chatRepository = mock(ChatRepository.class);
+        UserService userService = mock(UserService.class);
+        Authentication authentication = mock(Authentication.class);
+
+        when(authentication.getName()).thenReturn("alice");
+
+        User alice = mock(User.class);
+        when(alice.getId()).thenReturn(1L);
+        when(userService.getUserProfile("alice")).thenReturn(alice);
+
+        ChatRoom room = ChatRoom.builder()
+                .roomId(10L)
+                .name("ccc")
+                .ownerUserId(999L)
+                .memberIds(List.of(1L, 2L))
+                .build();
+
+        when(chatRoomRepository.findByRoomId(10L)).thenReturn(room);
+
+        ChatService service = new ChatService(chatRoomRepository, chatRepository, userService);
+
+        assertThatThrownBy(() -> service.deleteRoom(10L, authentication))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("방장");
+
+        verify(chatRepository, never()).deleteByChatRoomId(anyLong());
+        verify(chatRoomRepository, never()).delete(any());
+    }
+}

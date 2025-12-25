@@ -47,3 +47,27 @@ Fix: 축제 관리자만 부스 목록에서 모든 데이터를 확인하도록
   - BoothMapView.vue: 관리자 유형에 따른 부스 페이지에 대한 권한을 부여함. 
 
 해결: #123
+
+---
+## 🚀 로컬 환경 실행 가이드 (Local Development)
+
+이 프로젝트는 로컬 개발 시 **H2 데이터베이스**를 사용하여 외부 DB 의존성 없이 실행할 수 있습니다.
+
+### 1. 로컬 프로필로 실행하기
+아래 명령어를 터미널에 입력하여 서버를 실행하세요.
+
+```bash
+# Windows (PowerShell)
+./gradlew bootRun --args='--spring.profiles.active=local'
+
+# Mac / Linux
+./gradlew bootRun --args='--spring.profiles.active=local'
+```
+
+### 2. 주요 접속 정보
+- **서버 주소**: `http://localhost:8080`
+- **Swagger API 문서**: `http://localhost:8080/swagger-ui/index.html` (API 테스트 가능)
+- **H2 콘솔**: `http://localhost:8080/h2-console`
+  - JDBC URL: `jdbc:h2:mem:testdb`
+  - User Name: `sa`
+  - Password: (비워둠)

@@ -1,5 +1,7 @@
 package g3pjt.service.config;
 
+import g3pjt.service.user.jwt.JwtAuthorizationFilter;
+import g3pjt.service.user.jwt.JwtUtil;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -10,6 +12,8 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequestRedirectFilter;
 
 import lombok.RequiredArgsConstructor;
 
@@ -17,6 +21,10 @@ import lombok.RequiredArgsConstructor;
 @Configuration
 @RequiredArgsConstructor
 public class SecurityConfig {
+
+    private final JwtUtil jwtUtil;
+    private final OAuth2SuccessHandler oAuth2SuccessHandler;
+    private final OAuth2RedirectUriCookieFilter oAuth2RedirectUriCookieFilter;
 
 //    public SecurityConfig() {
 //        System.out.println("*** SecurityConfig Loaded ***");
@@ -28,7 +36,10 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder();
     }
 
-    private final OAuth2SuccessHandler oAuth2SuccessHandler;
+    @Bean
+    public JwtAuthorizationFilter jwtAuthorizationFilter() {
+        return new JwtAuthorizationFilter(jwtUtil);
+    }
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -56,10 +67,22 @@ public class SecurityConfig {
                         // "/api/user/signup", "/api/user/login" URL은 인증 없이 무조건 허용
                         .requestMatchers("/api/user/signup", "/api/user/login").permitAll()
 
+                // 내 프로필 API는 인증 필요
+                .requestMatchers("/api/user/profile").authenticated()
+
+                    // 채팅 REST API는 인증 필요
+                    .requestMatchers("/api/chats/**").authenticated()
+
+                        // 회원 탈퇴는 인증 필요
+                        .requestMatchers(org.springframework.http.HttpMethod.DELETE, "/api/user").authenticated()
+
                         // (선택) H2 콘솔 접근 허용 (개발용 - 지금은 MySQL 쓰니 불필요)
                         // .requestMatchers("/h2-console/**").permitAll()
 
-                        // '/api/stores/search' 경로는 '인증'만 되면 (로그인한 사용자면) 허용
+                        // '/api/stores/search' 경로는 '인증'만 되면 (로그인) 허용 -> permitAll for now based on user's existing code? 
+                        // The user said "jwt login not working", let's keep permitAll but ensure filter runs.
+                        // Actually, to prove it works, we should probably restrict something. 
+                        // But I will stick to adding the filter. The filter chain execution is key.
                         .requestMatchers("/api/stores/search/**").permitAll()
 
                         // Swagger UI 및 API 문서 접근 허용
@@ -72,6 +95,10 @@ public class SecurityConfig {
                         // 위에서 허용한 URL 외의 모든 요청은 인증(로그인)이 필요함
                         .anyRequest().permitAll()
         );
+        
+        // 필터 추가
+        http.addFilterBefore(oAuth2RedirectUriCookieFilter, OAuth2AuthorizationRequestRedirectFilter.class);
+        http.addFilterBefore(jwtAuthorizationFilter(), UsernamePasswordAuthenticationFilter.class);
 
         // (선택) H2 콘솔 iframe 허용
         // http.headers(headers -> headers.frameOptions(frame -> frame.sameOrigin()));
@@ -85,6 +112,7 @@ public class SecurityConfig {
         configuration.addAllowedOriginPattern("*"); // 모든 출처 허용
         configuration.addAllowedMethod("*"); // 모든 HTTP 메서드 허용
         configuration.addAllowedHeader("*"); // 모든 헤더 허용
+        configuration.addExposedHeader(JwtUtil.AUTHORIZATION_HEADER); // 프론트에서 헤더 확인 허용
         configuration.setAllowCredentials(true); // 쿠키/인증 정보 포함 허용
 
         org.springframework.web.cors.UrlBasedCorsConfigurationSource source = new org.springframework.web.cors.UrlBasedCorsConfigurationSource();

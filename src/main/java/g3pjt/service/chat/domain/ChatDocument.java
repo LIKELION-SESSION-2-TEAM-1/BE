@@ -1,5 +1,6 @@
-package g3pjt.service.chat;
+package g3pjt.service.chat.domain;
 
+import g3pjt.service.chat.dto.ChatDto;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -27,5 +28,6 @@ public class ChatDocument {
     private String message;
 
     private ChatDto.MessageType messageType;
-    private Instant ts;
+
+    private Instant timestamp;
 }

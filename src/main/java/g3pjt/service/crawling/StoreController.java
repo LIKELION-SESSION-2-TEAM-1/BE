@@ -10,10 +10,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.tags.Tag;
-
 @Tag(name = "Store Crawler API", description = "가게 정보 크롤링 API")
 @RestController
 @RequestMapping("/api/stores")
