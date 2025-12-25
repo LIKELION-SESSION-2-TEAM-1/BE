@@ -1,152 +1,187 @@
 package g3pjt.service.crawling;
-import com.fasterxml.jackson.core.type.TypeReference;
+
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.springframework.core.io.ClassPathResource;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import org.springframework.util.FileCopyUtils;
+import org.springframework.util.StringUtils;
+import org.springframework.web.client.RestClientResponseException;
+import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.UriComponentsBuilder;
+import org.springframework.web.util.UriUtils;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.io.BufferedReader;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
-
-import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Service
+@RequiredArgsConstructor
+@Slf4j
 public class CrawlingService {
 
-    private static final Logger log = LoggerFactory.getLogger(CrawlingService.class);
+    private static final String TOUR_KEYWORD_SEARCH_URL =
+            "https://apis.data.go.kr/B551011/KorService2/searchKeyword2";
 
-    @org.springframework.beans.factory.annotation.Value("${python.executable.path:python}")
-    private String configuredPythonPath;
+    private static final Pattern FIRST_URL_PATTERN =
+            Pattern.compile("(https?://[^\\s\"'>]+)");
+
+    private final ObjectMapper objectMapper;
+
+    @Value("${tour.api.service.key:${TOUR_API_SERVICE_KEY:}}")
+    private String tourApiServiceKey;
 
     public List<StoreDto> searchStoresBatch(List<String> keywords) {
         if (keywords == null || keywords.isEmpty()) {
             return new ArrayList<>();
         }
 
-        System.out.println("Batch crawling started for keywords: " + keywords);
-
-        try {
-            ClassPathResource resource = new ClassPathResource("crawler.py");
-            String scriptPath = resolveScriptPath(resource);
-            String pythonExecutable = resolvePythonExecutable();
-            System.out.println("Using Python executable: " + pythonExecutable);
-
-            // Build command: python script.py keyword1 keyword2 ...
-            List<String> command = new ArrayList<>();
-            command.add(pythonExecutable);
-            command.add(scriptPath);
-            command.addAll(keywords);
-
-            ProcessBuilder processBuilder = new ProcessBuilder(command);
-            Map<String, String> env = processBuilder.environment();
-            env.put("PYTHONIOENCODING", "UTF-8");
-            env.putIfAbsent("PYTHONUTF8", "1");
-
-            // stderr도 같이 읽어 원인 파악 가능하게
-            processBuilder.redirectErrorStream(true);
-
-            Process process = processBuilder.start();
-
-            // Read output
-            String jsonResult;
-            try (InputStream inputStream = process.getInputStream()) {
-                jsonResult = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8))
-                        .lines()
-                        .collect(Collectors.joining("\n"));
+        List<StoreDto> results = new ArrayList<>();
+        for (String keyword : keywords) {
+            if (!StringUtils.hasText(keyword)) {
+                continue;
             }
 
-            int exitCode = process.waitFor();
-
-            if (exitCode == 0 && jsonResult != null && !jsonResult.trim().isEmpty()) {
-                ObjectMapper objectMapper = new ObjectMapper();
-                return objectMapper.readValue(jsonResult, new TypeReference<>() {});
-            } else {
-                log.warn("Crawler process finished with exitCode={} outputSnippet={}", exitCode, snippet(jsonResult));
-                return new ArrayList<>();
+            List<StoreDto> one = searchStoresInternal(keyword.trim(), 1);
+            if (!one.isEmpty()) {
+                results.add(one.get(0));
             }
-
-        } catch (Exception e) {
-            log.warn("Crawler execution failed: {}", e.toString());
-            return new ArrayList<>();
         }
+
+        return results;
     }
 
     public List<StoreDto> searchStores(String keyword) {
-        // Fallback or single use
-        return searchStoresBatch(List.of(keyword));
+        return searchStoresInternal(keyword, 10);
     }
 
-    private String resolvePythonExecutable() {
-        // 1. Try configured path (from application.properties or env var)
-        if (isValidPython(configuredPythonPath)) {
-            return configuredPythonPath;
-        }
+    private List<StoreDto> searchStoresInternal(String keyword, int maxItems) {
+        if (!StringUtils.hasText(keyword)) return Collections.emptyList();
+        if (!StringUtils.hasText(tourApiServiceKey))
+            throw new IllegalStateException("Tour API key not configured");
 
-        // 2. Try "python" (System PATH)
-        if (isValidPython("python")) {
-            return "python";
-        }
-
-        // 3. Try "python3" (Mac/Linux)
-        if (isValidPython("python3")) {
-            return "python3";
-        }
-
-        // 4. Fallback: User's specific local path (Last resort for local dev)
-        String localFallback = "C:\\Users\\choke\\AppData\\Local\\Programs\\Python\\Python312\\python.exe";
-        if (new File(localFallback).exists()) {
-            return localFallback;
-        }
-
-        // Default to configured path even if validation failed, to show meaningful error later
-        return configuredPythonPath;
-    }
-
-    private boolean isValidPython(String path) {
         try {
-            ProcessBuilder pb = new ProcessBuilder(path, "--version");
-            pb.start().waitFor();
-            return true;
-        } catch (IOException | InterruptedException e) {
-            return false;
+            return callTourKeywordSearch(keyword, maxItems);
+        } catch (Exception e) {
+            log.warn("Tour keyword search failed", e);
+            throw new IllegalStateException("Tour keyword search failed: " + e.getMessage());
         }
     }
 
-    private String resolveScriptPath(ClassPathResource resource) throws IOException {
-        // IDE/로컬(클래스패스가 실제 파일)에서는 getFile()이 되지만,
-        // 배포(jar)에서는 리소스가 파일이 아니어서 getFile()이 실패한다.
+    private List<StoreDto> callTourKeywordSearch(String keyword, int maxItems) throws Exception {
+
+        int numOfRows = Math.min(Math.max(maxItems, 1), 1000);
+
+        String serviceKeyParam = normalizeTourServiceKey(tourApiServiceKey);
+        String encodedKeyword = UriUtils.encodeQueryParam(keyword, StandardCharsets.UTF_8);
+
+        // build(true) 사용: serviceKey/keyword를 우리가 미리 인코딩해서 넘긴다.
+        String uri = UriComponentsBuilder.fromHttpUrl(TOUR_KEYWORD_SEARCH_URL)
+                .queryParam("serviceKey", serviceKeyParam)
+                .queryParam("MobileOS", "ETC")
+                .queryParam("MobileApp", "MyApp")
+                .queryParam("_type", "json")
+                .queryParam("numOfRows", numOfRows)
+                .queryParam("pageNo", 1)
+                .queryParam("arrange", "C")
+            .queryParam("keyword", encodedKeyword)
+                .build(true)
+                .toUriString();
+
+        RestTemplate restTemplate = new RestTemplate();
+        String body;
+
         try {
-            return resource.getFile().getAbsolutePath();
-        } catch (IOException ignored) {
-            // jar 실행 환경: 리소스를 임시 파일로 추출
-            Path temp = Files.createTempFile("crawler-", ".py");
-            temp.toFile().deleteOnExit();
-            try (InputStream in = resource.getInputStream(); OutputStream out = Files.newOutputStream(temp)) {
-                FileCopyUtils.copy(in, out);
+            body = restTemplate.getForObject(uri, String.class);
+        } catch (RestClientResponseException e) {
+            String bodySnippet = e.getResponseBodyAsString();
+            if (bodySnippet != null && bodySnippet.length() > 500) {
+                bodySnippet = bodySnippet.substring(0, 500) + "...";
             }
-            return temp.toAbsolutePath().toString();
+            log.warn(
+                    "TourAPI HTTP error: status={}, bodySnippet={}, keyword='{}', serviceKeyEncoded={}",
+                    e.getRawStatusCode(),
+                    bodySnippet,
+                    keyword,
+                    serviceKeyParam.contains("%")
+            );
+            throw new IllegalStateException("Tour API error: HTTP " + e.getRawStatusCode() + " (" + e.getStatusText() + ")");
         }
+
+        if (!StringUtils.hasText(body)) return Collections.emptyList();
+
+        JsonNode root = objectMapper.readTree(body);
+        JsonNode response = root.path("response");
+        JsonNode bodyNode = response.path("body");
+
+        int totalCount = bodyNode.path("totalCount").asInt(-1);
+        log.info("Tour keyword search ok: keyword='{}', totalCount={}", keyword, totalCount);
+
+        JsonNode items = bodyNode.path("items").path("item");
+        if (items.isMissingNode() || items.isNull()) return Collections.emptyList();
+
+        List<JsonNode> itemNodes = new ArrayList<>();
+        if (items.isArray()) items.forEach(itemNodes::add);
+        else itemNodes.add(items);
+
+        List<StoreDto> results = new ArrayList<>();
+
+        for (JsonNode item : itemNodes) {
+
+            String title = item.path("title").asText("").trim();
+            if (!StringUtils.hasText(title)) continue;
+
+            String addr1 = item.path("addr1").asText("").trim();
+            String addr2 = item.path("addr2").asText("").trim();
+            String address = (addr1 + (StringUtils.hasText(addr2) ? (" " + addr2) : "")).trim();
+
+            String imageUrl = item.path("firstimage").asText("").trim();
+            String homepage = item.path("homepage").asText("").trim();
+
+            String link = extractFirstUrl(homepage);
+            if (!StringUtils.hasText(link)) {
+
+                String encodedTitle = UriComponentsBuilder.newInstance()
+                        .queryParam("k", title)
+                        .build()
+                        .getQueryParams()
+                        .getFirst("k");
+
+                link = "https://korean.visitkorea.or.kr/search/search_list.do?keyword=" + encodedTitle;
+            }
+
+            StoreDto dto = new StoreDto();
+            dto.setStoreName(title);
+            dto.setCategory("");
+            dto.setAddress(address);
+            dto.setRating("0.0");
+            dto.setReviewCount("0");
+            dto.setLink(link);
+            dto.setImageUrl(imageUrl);
+
+            results.add(dto);
+            if (results.size() >= maxItems) break;
+        }
+
+        return results;
     }
 
-    private String snippet(String body) {
-        if (body == null) {
-            return "";
-        }
-        String trimmed = body.trim();
-        int limit = Math.min(trimmed.length(), 300);
-        return trimmed.substring(0, limit).replaceAll("\\s+", " ");
+    private String normalizeTourServiceKey(String rawKey) {
+        if (!StringUtils.hasText(rawKey)) return "";
+        String trimmed = rawKey.trim();
+
+        if (trimmed.contains("%")) return trimmed;
+
+        // 디코딩 키(+, /, =) 포함 가능. query param 기준으로 인코딩.
+        return UriUtils.encodeQueryParam(trimmed, StandardCharsets.UTF_8);
+    }
+
+    private String extractFirstUrl(String text) {
+        if (!StringUtils.hasText(text)) return "";
+        Matcher m = FIRST_URL_PATTERN.matcher(text);
+        if (m.find()) return m.group(1);
+        return "";
     }
 }
