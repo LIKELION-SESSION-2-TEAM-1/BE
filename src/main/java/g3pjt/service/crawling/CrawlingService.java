@@ -59,6 +59,7 @@ public class CrawlingService {
 
     private List<StoreDto> searchStoresInternal(String keyword, int maxItems) {
         if (!StringUtils.hasText(keyword)) return Collections.emptyList();
+        
         if (!StringUtils.hasText(tourApiServiceKey))
             throw new IllegalStateException("Tour API key not configured");
 
