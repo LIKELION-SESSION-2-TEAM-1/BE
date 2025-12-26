@@ -90,7 +90,8 @@ public class UserService {
                 request.getTravelPace(),
                 request.getDailyRhythm(),
                 request.getFoodPreferences(),
-                request.getFoodRestrictions()
+            request.getFoodRestrictions(),
+            request.getRecentSearchEnabled()
         );
         // Transactional 어노테이션 덕분에 save 호출 없이도 더티 체킹으로 업데이트됨
     }

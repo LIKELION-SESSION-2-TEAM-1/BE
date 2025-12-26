@@ -27,4 +27,7 @@ public class UserUpdateRequest {
 
     @io.swagger.v3.oas.annotations.media.Schema(description = "제외 음식 리스트 (알레르기 등)", example = "[\"오이\", \"땅콩\"]")
     private List<String> foodRestrictions;
+
+    @io.swagger.v3.oas.annotations.media.Schema(description = "최근 검색 자동 저장 여부 (null이면 변경 안 함)", example = "true")
+    private Boolean recentSearchEnabled;
 }

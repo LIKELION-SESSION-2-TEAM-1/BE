@@ -47,6 +47,14 @@ public class User {
     @Column(name = "restriction")
     private java.util.List<String> foodRestrictions = new java.util.ArrayList<>();
 
+    // 최근 검색 자동 저장 설정
+    @Column(name = "recent_search_enabled")
+    private Boolean recentSearchEnabled = true;
+
+    public boolean isRecentSearchEnabled() {
+        return recentSearchEnabled == null ? true : recentSearchEnabled;
+    }
+
     public User(String username, String password) {
         this.username = username;
         this.password = password;
@@ -58,12 +66,17 @@ public class User {
 
     public void updateProfile(String nickname, String profileImageUrl, String birthDate,
                               String travelPace, String dailyRhythm,
-                              java.util.List<String> foodPreferences, java.util.List<String> foodRestrictions) {
+                              java.util.List<String> foodPreferences, java.util.List<String> foodRestrictions,
+                              Boolean recentSearchEnabled) {
         if (nickname != null) this.nickname = nickname;
         if (profileImageUrl != null) this.profileImageUrl = profileImageUrl;
         if (birthDate != null) this.birthDate = birthDate;
         if (travelPace != null) this.travelPace = travelPace;
         if (dailyRhythm != null) this.dailyRhythm = dailyRhythm;
+
+        if (recentSearchEnabled != null) {
+            this.recentSearchEnabled = recentSearchEnabled;
+        }
         
         if (foodPreferences != null) {
             this.foodPreferences.clear();
