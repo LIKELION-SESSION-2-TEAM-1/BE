@@ -32,7 +32,7 @@ public class AiService {
     private String geminiApiKey;
 
     // Gemini API URL Template
-    private static final String GEMINI_API_URL_TEMPLATE = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=%s";
+    private static final String GEMINI_API_URL_TEMPLATE = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=%s";
 
     public AiDto extractKeywords(Long chatRoomId) {
         // 1. Fetch chat history
@@ -82,17 +82,43 @@ public class AiService {
             ResponseEntity<String> response = restTemplate.postForEntity(url, entity, String.class);
             String content = extractGeminiResponse(response.getBody());
 
-            if (content != null && !content.trim().isEmpty() && !content.trim().equalsIgnoreCase("NONE")) {
-                return Arrays.stream(content.split(","))
-                        .map(String::trim)
-                        .filter(s -> !s.isEmpty())
-                        .collect(Collectors.toList());
-            }
+            return parseKeywordList(content);
         } catch (Exception e) {
             log.error("Error calling Gemini API for keywords", e);
         }
 
         return Collections.emptyList();
+    }
+
+    private List<String> parseKeywordList(String content) {
+        if (content == null) {
+            return Collections.emptyList();
+        }
+
+        String normalized = content
+                .replace("```", " ")
+                .replace("\n", ",")
+                .replace("\r", ",")
+                .replace("•", ",")
+                .trim();
+
+        if (normalized.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        String upper = normalized.toUpperCase(Locale.ROOT);
+        if (upper.equals("NONE") || upper.contains("NONE")) {
+            return Collections.emptyList();
+        }
+        if (normalized.contains("없음") || normalized.contains("없습니다") || normalized.contains("없어요")) {
+            return Collections.emptyList();
+        }
+
+        return Arrays.stream(normalized.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .distinct()
+                .collect(Collectors.toList());
     }
 
     public AiPlanDto generateTravelPlan(List<String> keywords) {
