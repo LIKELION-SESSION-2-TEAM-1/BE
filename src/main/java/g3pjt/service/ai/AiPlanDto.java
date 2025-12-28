@@ -11,6 +11,9 @@ import java.util.List;
 @AllArgsConstructor
 @NoArgsConstructor
 public class AiPlanDto {
+    @Schema(description = "채팅방 ID (방 기준으로 일정 저장/조회에 사용)", example = "1")
+    private Long chatRoomId;
+
     @Schema(description = "여행 계획 제목", example = "제주도 힐링 여행")
     private String title;
     

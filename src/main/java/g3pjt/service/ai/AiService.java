@@ -130,7 +130,7 @@ public class AiService {
 
     public AiPlanDto generateTravelPlan(Long chatRoomId, List<String> keywords) {
         if (keywords == null || keywords.isEmpty()) {
-            return new AiPlanDto("No Plan", "No destinations provided.", Collections.emptyList());
+            return new AiPlanDto(null, "No Plan", "No destinations provided.", Collections.emptyList());
         }
 
         // 1. Crawl data for all keywords at once (Batch Processing)
@@ -216,7 +216,7 @@ public class AiService {
             log.error("Error calling Gemini API for plan generation", e);
         }
 
-        return new AiPlanDto("Error", "Failed to generate plan.", Collections.emptyList());
+        return new AiPlanDto(null, "Error", "Failed to generate plan.", Collections.emptyList());
     }
 
     private String extractGeminiResponse(String responseBody) {
@@ -241,6 +241,7 @@ public class AiService {
     public UserTravelPlan confirmPlan(Long userId, AiPlanDto finalPlan) {
         UserTravelPlan userPlan = UserTravelPlan.builder()
                 .userId(userId)
+                .chatRoomId(finalPlan != null ? finalPlan.getChatRoomId() : null)
                 .plan(finalPlan)
                 .savedAt(LocalDateTime.now())
                 .build();
@@ -256,6 +257,16 @@ public class AiService {
             throw new IllegalArgumentException("Unauthorized: You do not own this travel plan.");
         }
 
+        // Keep chatRoomId consistent even if FE omits it in update payload
+        if (updatedPlan != null) {
+            if (updatedPlan.getChatRoomId() == null && existingPlan.getChatRoomId() != null) {
+                updatedPlan.setChatRoomId(existingPlan.getChatRoomId());
+            }
+            if (updatedPlan.getChatRoomId() != null) {
+                existingPlan.setChatRoomId(updatedPlan.getChatRoomId());
+            }
+        }
+
         existingPlan.setPlan(updatedPlan);
         // updated time logic could be added here if needed
         return userTravelPlanRepository.save(existingPlan);
@@ -263,6 +274,13 @@ public class AiService {
 
     public List<UserTravelPlan> getUserPlans(Long userId) {
         return userTravelPlanRepository.findByUserId(userId);
+    }
+
+    public List<UserTravelPlan> getUserPlans(Long userId, Long chatRoomId) {
+        if (chatRoomId == null) {
+            return getUserPlans(userId);
+        }
+        return userTravelPlanRepository.findByUserIdAndChatRoomId(userId, chatRoomId);
     }
 
     public void deletePlan(String planId, Long userId) {

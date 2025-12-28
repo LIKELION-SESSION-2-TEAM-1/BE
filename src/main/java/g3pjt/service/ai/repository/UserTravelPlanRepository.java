@@ -9,4 +9,6 @@ import java.util.List;
 @Repository
 public interface UserTravelPlanRepository extends MongoRepository<UserTravelPlan, String> {
     List<UserTravelPlan> findByUserId(Long userId);
+
+    List<UserTravelPlan> findByUserIdAndChatRoomId(Long userId, Long chatRoomId);
 }

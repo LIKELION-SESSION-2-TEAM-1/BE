@@ -76,11 +76,14 @@ public class AiController {
 
     @Operation(summary = "내 여행 계획 목록 조회", description = "내가 저장한 모든 여행 계획을 조회합니다.")
     @GetMapping("/plans")
-    public ResponseEntity<List<UserTravelPlan>> getMyPlans(Authentication authentication) {
+    public ResponseEntity<List<UserTravelPlan>> getMyPlans(
+            @RequestParam(required = false) Long chatRoomId,
+            Authentication authentication
+    ) {
         User user = validateAndGetUser(authentication);
         if (user == null) return ResponseEntity.status(401).build();
 
-        return ResponseEntity.ok(aiService.getUserPlans(user.getId()));
+        return ResponseEntity.ok(aiService.getUserPlans(user.getId(), chatRoomId));
     }
 
     @Operation(summary = "여행 계획 삭제", description = "저장된 여행 계획을 삭제합니다.")

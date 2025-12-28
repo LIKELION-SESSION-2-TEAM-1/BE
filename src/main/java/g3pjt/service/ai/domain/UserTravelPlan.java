@@ -17,6 +17,7 @@ public class UserTravelPlan {
     private String id;
     
     private Long userId; // The user who saved this plan
+    private Long chatRoomId; // The chat room this plan belongs to
     private AiPlanDto plan; // The travel plan details
     
     @CreatedDate
