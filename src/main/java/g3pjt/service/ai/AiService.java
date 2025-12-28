@@ -246,4 +246,33 @@ public class AiService {
                 .build();
         return userTravelPlanRepository.save(userPlan);
     }
+
+    public UserTravelPlan updateTravelPlan(String planId, Long userId, AiPlanDto updatedPlan) {
+        UserTravelPlan existingPlan = userTravelPlanRepository.findById(planId)
+                .orElseThrow(() -> new IllegalArgumentException("Travel plan not found with id: " + planId));
+        
+        // Verify ownership
+        if (!existingPlan.getUserId().equals(userId)) {
+            throw new IllegalArgumentException("Unauthorized: You do not own this travel plan.");
+        }
+
+        existingPlan.setPlan(updatedPlan);
+        // updated time logic could be added here if needed
+        return userTravelPlanRepository.save(existingPlan);
+    }
+
+    public List<UserTravelPlan> getUserPlans(Long userId) {
+        return userTravelPlanRepository.findByUserId(userId);
+    }
+
+    public void deletePlan(String planId, Long userId) {
+        UserTravelPlan existingPlan = userTravelPlanRepository.findById(planId)
+                .orElseThrow(() -> new IllegalArgumentException("Travel plan not found with id: " + planId));
+        
+        if (!existingPlan.getUserId().equals(userId)) {
+            throw new IllegalArgumentException("Unauthorized: You do not own this travel plan.");
+        }
+        
+        userTravelPlanRepository.delete(existingPlan);
+    }
 }
