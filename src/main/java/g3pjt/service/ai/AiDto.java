@@ -11,4 +11,5 @@ import java.util.List;
 @NoArgsConstructor
 public class AiDto {
     private List<String> keywords;
+    private Long chatRoomId;
 }
