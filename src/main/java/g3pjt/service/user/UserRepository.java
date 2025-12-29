@@ -1,11 +1,13 @@
 package g3pjt.service.user;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import java.util.List;
 import java.util.Optional;
 
 public interface UserRepository extends JpaRepository<User, Long> {
-    // username으로 사용자를 찾기 위한 메서드 (중복 검사 및 로그인 시 사용)
     Optional<User> findByUsername(String username);
-
     Optional<User> findByNickname(String nickname);
+
+    // MongoDB에서 가져온 ID 리스트로 PostgreSQL 유저들을 한 번에 조회하는 메서드
+    List<User> findByIdIn(List<Long> ids);
 }
