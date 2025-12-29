@@ -11,7 +11,7 @@ import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 import org.springframework.web.util.UriUtils;
-
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.regex.Matcher;
@@ -78,8 +78,7 @@ public class CrawlingService {
         String serviceKeyParam = normalizeTourServiceKey(tourApiServiceKey);
         String encodedKeyword = UriUtils.encodeQueryParam(keyword, StandardCharsets.UTF_8);
 
-        // build(true) 사용: serviceKey/keyword를 우리가 미리 인코딩해서 넘긴다.
-        String uri = UriComponentsBuilder.fromHttpUrl(TOUR_KEYWORD_SEARCH_URL)
+        URI uri = UriComponentsBuilder.fromHttpUrl(TOUR_KEYWORD_SEARCH_URL)
                 .queryParam("serviceKey", serviceKeyParam)
                 .queryParam("MobileOS", "ETC")
                 .queryParam("MobileApp", "MyApp")
@@ -87,14 +86,15 @@ public class CrawlingService {
                 .queryParam("numOfRows", numOfRows)
                 .queryParam("pageNo", 1)
                 .queryParam("arrange", "C")
-            .queryParam("keyword", encodedKeyword)
+                .queryParam("keyword", encodedKeyword)
                 .build(true)
-                .toUriString();
+                .toUri(); // toUri() 사용하여 URI 객체 생성
 
         RestTemplate restTemplate = new RestTemplate();
         String body;
 
         try {
+            // String 대신 URI 객체를 전달하면 RestTemplate이 추가 인코딩을 하지 않음
             body = restTemplate.getForObject(uri, String.class);
         } catch (RestClientResponseException e) {
             String bodySnippet = e.getResponseBodyAsString();
