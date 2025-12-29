@@ -512,6 +512,7 @@ public class AiService {
                 "4. **키워드 반영**: 사용자가 대화에서 언급한 음식(키워드) 관련 식당이 있다면 우선적으로 포함해.\n" +
                 "5. **여행 일정 정보 필수 반영**: 채팅방 생성 시 적용되었던 여행 일정(몇박 몇일인지, 월과 일을 반영해).\n" +
                 "6. **일정 개수**: 하루 일정이 최소 4개는 되게끔 일정을 배치해줘.\n" +
+                "7. **주소 상세 표기**: 모든 장소의 'address' 필드는 반드시 구글 지도에서 검색 가능한 '전체 도로명 주소'로 정확하게 기입해.\n" +
                 "\n" +
                 "결과는 반드시 다음 JSON 형식으로만 반환해 (Markdown code block 없이, 순수 JSON 텍스트만):\n" +
                 "{ \"title\": \"여행 제목\", \"description\": \"전반적인 컨셉 설명\", \"schedule\": [ { \"day\": 1, \"date\": \"YYYY-MM-DD\", \"places\": [ { \"name\": \"장소명\", \"category\": \"업종\", \"address\": \"주소\", \"distanceToNext\": \"다음 장소까지 거리\" } ] } ] } " +
@@ -604,6 +605,12 @@ public class AiService {
         Map<String, Object> requestBody = new HashMap<>();
         requestBody.put("systemInstruction", Map.of("parts", List.of(Map.of("text", "You are a travel expert. Generate a structured travel plan in JSON format. return JSON WITHOUT markdown formatting."))));
         requestBody.put("contents", List.of(Map.of("role", "user", "parts", List.of(Map.of("text", prompt)))));
+
+        // [RAG 기능 추가] Google Search Grounding
+        // google_search_retrieval -> google_search 로 변경 (API 스펙 변경 반영)
+        Map<String, Object> googleSearchTool = Map.of("google_search", Map.of());
+        requestBody.put("tools", List.of(googleSearchTool));
+
         requestBody.put("generationConfig", Map.of("temperature", 0.7));
 
         HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
@@ -612,10 +619,20 @@ public class AiService {
             ResponseEntity<String> response = restTemplate.postForEntity(url, entity, String.class);
             String content = extractGeminiResponse(response.getBody());
 
+            log.info("Gemini extracted content: {}", content);
+
             if (content != null && !content.trim().isEmpty()) {
-                content = content.replace("```json", "").replace("```", "").trim();
-                return objectMapper.readValue(content, AiPlanDto.class);
+                String cleanedContent = content.replace("```json", "").replace("```", "").trim();
+                
+                if (cleanedContent.isEmpty()) {
+                    log.warn("Gemini returned empty JSON content. Raw content: {}", content);
+                    return new AiPlanDto(null, "Error", "Empty response from AI", Collections.emptyList());
+                }
+
+                return objectMapper.readValue(cleanedContent, AiPlanDto.class);
             }
+        } catch (org.springframework.web.client.RestClientResponseException e) {
+            log.error("Gemini API Error: Status={}, Body={}", e.getRawStatusCode(), e.getResponseBodyAsString());
         } catch (Exception e) {
             log.error("Error calling Gemini API for plan generation", e);
         }
