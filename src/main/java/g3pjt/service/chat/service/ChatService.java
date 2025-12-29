@@ -184,7 +184,7 @@ public class ChatService {
         }
     }
 
-    private Long resolveOwnerUserId(ChatRoom room) {
+    Long resolveOwnerUserId(ChatRoom room) {
         if (room.getOwnerUserId() != null) {
             return room.getOwnerUserId();
         }
