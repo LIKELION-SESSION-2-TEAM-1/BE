@@ -46,6 +46,7 @@ public class StompChatController {
                 .receiverUserId(dto.getReceiverUserId())
                 .receiverName(dto.getReceiverName())
                 .message(dto.getMessage())
+                .pollId(dto.getPollId())
                 .imageUrl(dto.getImageUrl())
                 .messageType(dto.getMessageType())
             .timestamp(dto.getTimestamp())

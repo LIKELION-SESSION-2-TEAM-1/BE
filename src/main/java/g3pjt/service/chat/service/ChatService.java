@@ -165,7 +165,7 @@ public class ChatService {
         return room;
     }
 
-    private ChatRoom getRoomOrThrow(Long roomId) {
+    ChatRoom getRoomOrThrow(Long roomId) {
         ChatRoom room = chatRoomRepository.findByRoomId(roomId);
         if (room == null) {
             throw new IllegalArgumentException("채팅방을 찾을 수 없습니다.");
@@ -173,12 +173,12 @@ public class ChatService {
         return room;
     }
 
-    private Long getRequesterUserId(Authentication authentication) {
+    Long getRequesterUserId(Authentication authentication) {
         String username = authentication.getName();
         return userService.getUserProfile(username).getId();
     }
 
-    private void ensureMember(ChatRoom room, Long userId) {
+    void ensureMember(ChatRoom room, Long userId) {
         if (userId == null || !room.getMemberIds().contains(userId)) {
             throw new IllegalArgumentException("채팅방 멤버만 수행할 수 있습니다.");
         }

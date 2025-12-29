@@ -27,6 +27,9 @@ public class ChatDocument {
     private String receiverName;
     private String message;
 
+    // Optional: for poll messages
+    private String pollId;
+
     private String imageUrl;
 
     private ChatDto.MessageType messageType;

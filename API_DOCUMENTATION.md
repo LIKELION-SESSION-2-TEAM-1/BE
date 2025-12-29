@@ -45,6 +45,63 @@
 | `GET` | `/rooms` | **내 채팅방 목록 조회** (내가 멤버인 방만) | O |
 | `GET` | `/{chatRoomId}` | 특정 방의 과거 대화 내역 조회 | O |
 
+### 🗳️ 채팅방 투표 (Poll)
+
+| Method | Endpoint | 설명 | 인증 |
+| :--- | :--- | :--- | :--- |
+| `POST` | `/rooms/{roomId}/polls` | 투표 생성 (생성 후 STOMP로 POLL 브로드캐스트) | O |
+| `GET` | `/rooms/{roomId}/polls` | 투표 목록 조회(최신순) | O |
+| `GET` | `/polls/{pollId}` | 투표 상세/결과 조회 | O |
+| `POST` | `/polls/{pollId}/votes` | 투표하기(1인 1표) | O |
+
+#### 투표 생성 요청
+`POST /api/chats/rooms/{roomId}/polls`
+```json
+{
+   "question": "점심 뭐 먹을까?",
+   "options": ["국밥", "파스타", "샐러드"]
+}
+```
+
+#### 투표 응답(요약)
+```json
+{
+   "pollId": "675d...",
+   "chatRoomId": 123,
+   "createdByUserId": 1,
+   "createdByName": "홍길동",
+   "question": "점심 뭐 먹을까?",
+   "options": [
+      {"optionId": "a1...", "text": "국밥", "voteCount": 0},
+      {"optionId": "b2...", "text": "파스타", "voteCount": 0}
+   ],
+   "myVotedOptionId": null,
+   "createdAt": "2025-12-30T00:00:00Z"
+}
+```
+
+#### 투표하기 요청
+`POST /api/chats/polls/{pollId}/votes`
+```json
+{ "optionId": "a1..." }
+```
+
+#### STOMP(실시간) 전달사항
+- 기존 채팅 SUB 경로 그대로 사용: `/sub/chat/{roomId}`
+- 투표 생성 시 아래 형태의 메시지가 브로드캐스트됩니다.
+```json
+{
+   "chatRoomId": 123,
+   "senderUserId": 1,
+   "senderName": "홍길동",
+   "message": "점심 뭐 먹을까?",
+   "pollId": "675d...",
+   "messageType": "POLL",
+   "timestamp": "2025-12-30T00:00:00Z"
+}
+```
+- 클라이언트는 `messageType == "POLL"`이면 `pollId`로 `GET /api/chats/polls/{pollId}`를 호출해 옵션/결과를 렌더링하면 됩니다.
+
 ### 💡 참고 사항
 - 채팅방 생성 시 `?name=방이름` 쿼리 파라미터 필수.
 - 이제 방을 만들면 본인이 자동으로 `memberIds`에 추가됩니다.
