@@ -7,9 +7,15 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.util.Map;
+
+import g3pjt.service.storage.SupabaseStorageService;
 
 @Tag(name = "User API", description = "회원 관련 API")
 @RestController // JSON 응답을 위한 컨트롤러
@@ -18,6 +24,7 @@ import org.springframework.security.core.Authentication;
 public class UserController {
 
     private final UserService userService;
+    private final SupabaseStorageService supabaseStorageService;
 
     /**
      * 회원가입 API
@@ -97,6 +104,30 @@ public class UserController {
         String username = authentication.getName();
         userService.updateProfile(username, requestDto);
         return ResponseEntity.ok("프로필 수정 완료");
+    }
+
+    @Operation(summary = "프로필 이미지 업로드", description = "Supabase Storage에 프로필 이미지를 업로드하고, 사용자 profileImageUrl을 갱신합니다.")
+    @PostMapping(value = "/profile/image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<Map<String, String>> uploadProfileImage(
+            Authentication authentication,
+            @RequestPart("file") MultipartFile file
+    ) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        String username = authentication.getName();
+        String publicUrl = supabaseStorageService.uploadProfileImage(username, file);
+        if (publicUrl == null) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("message", "버킷이 private이면 public URL을 바로 만들 수 없습니다. signed URL 방식으로 변경이 필요합니다."));
+        }
+
+        g3pjt.service.user.userdto.UserUpdateRequest request = new g3pjt.service.user.userdto.UserUpdateRequest();
+        request.setProfileImageUrl(publicUrl);
+        userService.updateProfile(username, request);
+
+        return ResponseEntity.ok(Map.of("profileImageUrl", publicUrl));
     }
 
     @Operation(summary = "회원 탈퇴", description = "현재 로그인한 사용자를 삭제합니다.")
