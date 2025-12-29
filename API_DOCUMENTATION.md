@@ -52,8 +52,34 @@
 ---
 
 ## 🤖 3. AI & 4. 가게 정보 (기존 동일)
-- `/api/ai/**`
-- `/api/stores/**`
+ - `/api/ai/**`
+ - `/api/stores/**`
+
+### 🧭 AI 여행 계획(Plan) - 방 기준(`chatRoomId`) 저장/조회
+
+프론트 변경에 맞춰 백엔드가 `chatRoomId`를 지원합니다.
+
+- `POST /api/ai/plan/confirm`
+   - Body에 `chatRoomId`를 포함한 전체 플랜 JSON을 전달하면 해당 방 기준으로 저장됩니다.
+   - 예시 Body:
+   ```json
+   {
+      "chatRoomId": 123,
+      "title": "제주도 힐링 여행",
+      "description": "아름다운 해변과 맛집을 탐방",
+      "schedule": [
+         { "day": 1, "places": [ { "name": "협재 해변", "category": "관광지" } ] }
+      ]
+   }
+   ```
+
+- `GET /api/ai/plans?chatRoomId=123`
+   - 쿼리 파라미터로 `chatRoomId`가 오면: 로그인 사용자 + 해당 `chatRoomId`에 저장된 플랜만 반환합니다.
+   - 파라미터가 없으면: 로그인 사용자의 모든 플랜을 반환합니다.
+
+- 중요: 기존에 저장된 플랜은 `chatRoomId = null`일 수 있습니다.
+   - 방 기준 조회에서는 보이지 않는 것이 정상입니다.
+   - 해결 방법: (a) DB 마이그레이션으로 채워넣거나, (b) 프론트에서 해당 플랜을 다시 확정(confirm)하여 저장.
 
 ---
 
@@ -110,3 +136,4 @@
 1. **회원가입**: 가입 후 바로 `/api/user/profile` 조회했을 때 `nickname`이 아이디와 같은지 확인.
 2. **프로필 수정**: 닉네임만 바꿔보고, 다른 정보(생일 등)가 날라가지 않고 유지되는지 확인.
 3. **채팅방**: 방을 하나 만들고 목록 조회(`GET /rooms`) 시 그 방이 나오는지 확인.
+4. **AI 플랜**: `POST /api/ai/plan/confirm` 시 Body에 `chatRoomId` 포함 → `GET /api/ai/plans?chatRoomId=해당값`으로 조회 시 화면에 일정이 표시되는지 확인.
