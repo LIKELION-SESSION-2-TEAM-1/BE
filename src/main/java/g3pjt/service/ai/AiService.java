@@ -301,9 +301,9 @@ package g3pjt.service.ai;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import g3pjt.service.chat.domain.ChatDocument;
-import g3pjt.service.chat.domain.ChatRoom; // [Mongo] 채팅방 도메인
+import g3pjt.service.chat.domain.ChatRoom; // [Mongo] ChatRoom
 import g3pjt.service.chat.repository.ChatRepository;
-import g3pjt.service.chat.repository.ChatRoomRepository; // [Mongo] 채팅방 리포지토리
+import g3pjt.service.chat.repository.ChatRoomRepository; // [Mongo] ChatRoomRepo
 import g3pjt.service.ai.domain.AiGeneratedPlan;
 import g3pjt.service.ai.domain.UserTravelPlan;
 import g3pjt.service.ai.repository.AiGeneratedPlanRepository;
@@ -311,7 +311,7 @@ import g3pjt.service.ai.repository.UserTravelPlanRepository;
 import g3pjt.service.crawling.CrawlingService;
 import g3pjt.service.crawling.StoreDto;
 
-// [User 관련 Import - PostgreSQL]
+// [User Import - PostgreSQL]
 import g3pjt.service.user.User;
 import g3pjt.service.user.UserRepository;
 
@@ -325,7 +325,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -335,9 +337,9 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class AiService {
 
-    private final ChatRepository chatRepository;       // Mongo (대화 내용)
-    private final ChatRoomRepository chatRoomRepository; // Mongo (방 정보 & 멤버 ID 목록)
-    private final UserRepository userRepository;       // Postgres (유저 상세 정보)
+    private final ChatRepository chatRepository;       // Mongo
+    private final ChatRoomRepository chatRoomRepository; // Mongo
+    private final UserRepository userRepository;       // Postgres
 
     private final ObjectMapper objectMapper;
     private final CrawlingService crawlingService;
@@ -351,6 +353,7 @@ public class AiService {
 
     /**
      * 1. 키워드 추출 (Extract Keywords)
+     * - 변경사항: 지역명뿐만 아니라 '음식' 키워드도 추출하도록 프롬프트 수정
      */
     public AiDto extractKeywords(Long chatRoomId) {
         List<ChatDocument> chatHistory = chatRepository.findByChatRoomId(chatRoomId);
@@ -375,12 +378,15 @@ public class AiService {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
 
-        String systemInstruction = "You are an expert AI geography assistant. Your goal is to extract only valid, real-world geographical locations (cities, countries, provinces, or famous tourist landmarks) from the user's conversation. " +
+        // [Prompt 수정] 지역(Locations) + 음식(Food/Dishes) 추출 요청
+        String systemInstruction = "You are an expert AI travel assistant. Your goal is to extract keywords from the conversation to search for travel destinations and restaurants. " +
                 "Strict Rules: " +
-                "1. Verify Existence: Only return locations that can be found on a real map. " +
-                "2. Exclude Noise: Do NOT include slang, verbs, common nouns (e.g., 'gang', 'job', 'food'), typos, or ambiguous words. " +
-                "3. Context: If a word is not a clear destination, ignore it. " +
-                "4. Output Format: Return ONLY a comma-separated list of keywords. If no valid locations are found, return the string 'NONE'. Do not add any other text.";
+                "1. Extract two types of keywords: " +
+                "   - Geographical locations (cities, landmarks). " +
+                "   - Specific food names or dish categories (e.g., 'Black Pork', 'Sushi', 'Dessert'). " +
+                "2. Verification: Only return words that are valid for a search query on a map or restaurant review site. " +
+                "3. Exclude Noise: Do NOT include verbs, slang, or general words like 'trip', 'fun', 'tomorrow'. " +
+                "4. Output Format: Return ONLY a comma-separated list of keywords. If nothing valid is found, return 'NONE'.";
 
         String userPrompt = "Chat History:\n" + conversation;
 
@@ -419,7 +425,10 @@ public class AiService {
     }
 
     /**
-     * 2. 여행 계획 생성 (Generate Travel Plan) - DB 연결 로직 수정 완료
+     * 2. 여행 계획 생성 (Generate Travel Plan)
+     * - DB 연결 유지
+     * - 날짜 계산 로직 추가
+     * - 필터링(음식 제약, 평점) 프롬프트 강화
      */
     public AiPlanDto generateTravelPlan(Long chatRoomId, List<String> keywords) {
         if (keywords == null || keywords.isEmpty()) {
@@ -429,14 +438,22 @@ public class AiService {
         // === [Step 1] MongoDB에서 채팅방 정보 조회 ===
         ChatRoom chatRoom = chatRoomRepository.findByRoomId(chatRoomId);
         List<User> participants = new ArrayList<>();
+        String durationInfo = "당일치기"; // 기본값
 
         if (chatRoom != null) {
-            // === [Step 2] 채팅방에 저장된 memberIds(Long List) 추출 ===
+            // A. 참여자 조회 (Mongo ID -> Postgres User)
             List<Long> memberIds = chatRoom.getMemberIds();
-
-            // === [Step 3] PostgreSQL에서 해당 ID들을 가진 User 정보 일괄 조회 ===
             if (memberIds != null && !memberIds.isEmpty()) {
                 participants = userRepository.findByIdIn(memberIds);
+            }
+
+            // B. 여행 기간 계산 (StartDate ~ EndDate)
+            if (chatRoom.getStartDate() != null && chatRoom.getEndDate() != null) {
+                long days = ChronoUnit.DAYS.between(chatRoom.getStartDate(), chatRoom.getEndDate()) + 1;
+                durationInfo = String.format("%s ~ %s (%d박 %d일)",
+                        chatRoom.getStartDate(), chatRoom.getEndDate(), days - 1, days);
+            } else if (chatRoom.getStartDate() != null) {
+                durationInfo = chatRoom.getStartDate() + " (당일)";
             }
         } else {
             log.warn("ChatRoom not found for id: {}", chatRoomId);
@@ -446,10 +463,10 @@ public class AiService {
             log.warn("No participants found via DB bridge for chatRoomId: {}. Proceeding with default settings.", chatRoomId);
         }
 
-        // 4. 그룹 데이터 집계 (다수결 및 합집합 로직 적용)
+        // 3. 그룹 프로필 생성 (제약사항 포함)
         String groupProfileContext = aggregateGroupProfile(participants);
 
-        // 5. 크롤링 진행
+        // 4. 크롤링 진행 (지역명 + 음식 키워드 모두 검색)
         List<StoreDto> crawledPlaces = new ArrayList<>();
         List<String> validKeywords = keywords.stream()
                 .map(String::trim)
@@ -464,36 +481,38 @@ public class AiService {
             log.error("Failed to crawl for keywords", e);
         }
 
-        // 6. 여행지 정보 텍스트 포맷팅
+        // 5. 여행지/식당 정보 포맷팅 (평점 정보 강조)
         StringBuilder placesInfo = new StringBuilder();
         if (crawledPlaces.isEmpty()) {
             for (String keyword : keywords) {
-                placesInfo.append(String.format("- 이름: %s (상세 정보 없음)\n", keyword));
+                placesInfo.append(String.format("- 키워드: %s (검색 결과 없음)\n", keyword));
             }
         } else {
             for (StoreDto place : crawledPlaces) {
-                placesInfo.append(String.format("- 이름: %s, 카테고리: %s, 주소: %s, 평점: %s\n",
+                placesInfo.append(String.format("- 식당/장소명: %s | 카테고리: %s | 주소: %s | ⭐평점: %s\n",
                         place.getStoreName(),
-                        place.getCategory() != null ? place.getCategory() : "미정",
-                        place.getAddress() != null ? place.getAddress() : "미정",
+                        place.getCategory() != null ? place.getCategory() : "기타",
+                        place.getAddress() != null ? place.getAddress() : "위치 정보 없음",
                         place.getRating() != null ? place.getRating() : "0.0"));
             }
         }
 
-        // 7. 프롬프트 구성 (그룹 프로필 + 여행지 정보)
+        // 6. 프롬프트 구성 (기간 + 제약 조건 + 고평점 필터링 요청)
         String prompt = groupProfileContext +
-                "\n위 [여행 그룹 프로필]과 아래 여행지 리스트를 바탕으로, 우리 그룹을 위한 최적의 여행 계획을 짜줘.\n" +
-                "\n[여행지 리스트]:\n" +
+                "\n\n[여행 일정 정보]\n" +
+                "- 기간: " + durationInfo + "\n" +
+                "\n[검색된 후보 장소 및 식당 리스트 (평점 포함)]:\n" +
                 placesInfo.toString() +
-                "\n\n[필수 반영 규칙]\n" +
-                "1. [CRITICAL_RESTRICTIONS](절대 금지 음식)에 포함된 재료/메뉴가 있는 식당은 동선에서 **무조건 제외**하거나, 확실한 대안이 없다면 방문하지 마.\n" +
-                "2. [Majority Pace](다수결 여행 페이스)를 기준으로 일정의 밀도를 정해줘. (느림: 여유롭게, 빠름: 빡빡하게)\n" +
-                "3. [Majority Rhythm](다수결 하루 리듬)에 맞춰 하루 시작 시간을 정해줘. (아침형: 8~9시 시작, 야행성: 11시 이후 시작)\n" +
-                "4. [Food Preferences](음식 선호)는 '다수결 선호'를 우선시하되, 소수 인원의 의견도 한두 끼니 정도 반영해서 모두가 만족하게 해줘.\n" +
-                "5. 장소들은 가장 효율적인 이동 동선(거리 순)으로 배치해야 해.\n" +
+                "\n\n[필수 수행 미션]\n" +
+                "위의 [후보 장소 리스트]와 [여행 그룹 프로필]을 분석하여 " + durationInfo + " 일정의 최적의 여행 계획을 짜줘.\n" +
+                "\n[★중요: 장소 선정 및 필터링 규칙★]\n" +
+                "1. **알러지/못 먹는 음식 필터링**: [CRITICAL_RESTRICTIONS]에 적힌 재료나 음식을 파는 식당은 **리스트에서 즉시 제외**해. (예: '해산물' 금지면 횟집, 조개구이집 제외)\n" +
+                "2. **고평점 우선 추천**: 남은 후보지 중에서 '평점'이 높은 곳을 우선적으로 일정에 배치해.\n" +
+                "3. **동선 최적화**: 선택된 장소들을 이동 거리가 짧은 순서대로 배치해.\n" +
+                "4. **키워드 반영**: 사용자가 대화에서 언급한 음식(키워드) 관련 식당이 있다면 우선적으로 포함해.\n" +
                 "\n" +
                 "결과는 반드시 다음 JSON 형식으로만 반환해 (Markdown code block 없이, 순수 JSON 텍스트만):\n" +
-                "{ \"title\": \"...\", \"description\": \"...\", \"schedule\": [ { \"day\": 1, \"places\": [ { \"name\": \"...\", \"category\": \"...\", \"address\": \"...\", \"distanceToNext\": \"...\" } ] } ] } " +
+                "{ \"title\": \"여행 제목\", \"description\": \"전반적인 컨셉 설명\", \"schedule\": [ { \"day\": 1, \"date\": \"YYYY-MM-DD\", \"places\": [ { \"name\": \"장소명\", \"category\": \"업종\", \"address\": \"주소\", \"distanceToNext\": \"다음 장소까지 거리\" } ] } ] } " +
                 "\nJSON은 유효해야 하며, 한국어로 작성해줘.";
 
         AiPlanDto plan = callGeminiToGeneratePlan(prompt);
@@ -522,32 +541,31 @@ public class AiService {
 
         int totalMembers = participants.size();
 
-        // 1. 여행 페이스 다수결 (빈도수 계산)
+        // 1. 여행 페이스
         Map<String, Long> paceCounts = participants.stream()
                 .map(u -> u.getTravelPace() != null ? u.getTravelPace() : "보통")
                 .collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
         String majorityPace = getMajorityKey(paceCounts, "보통");
 
-        // 2. 하루 리듬 다수결
+        // 2. 하루 리듬
         Map<String, Long> rhythmCounts = participants.stream()
                 .map(u -> u.getDailyRhythm() != null ? u.getDailyRhythm() : "유연")
                 .collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
         String majorityRhythm = getMajorityKey(rhythmCounts, "유연");
 
-        // 3. 음식 선호도 (모든 키워드 수집 후 빈도 내림차순 정렬)
+        // 3. 음식 선호도
         Map<String, Long> foodPrefCounts = participants.stream()
                 .filter(u -> u.getFoodPreferences() != null)
                 .flatMap(u -> u.getFoodPreferences().stream())
                 .collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
 
-        // 선호도 문자열 생성 (예: 한식(3명), 일식(1명))
         String foodPreferencesStr = foodPrefCounts.entrySet().stream()
                 .sorted(Map.Entry.<String, Long>comparingByValue().reversed())
                 .map(e -> e.getKey() + "(" + e.getValue() + "명)")
                 .collect(Collectors.joining(", "));
         if (foodPreferencesStr.isEmpty()) foodPreferencesStr = "특별한 선호 없음";
 
-        // 4. 음식 제약 사항 (합집합 - 단 한 명이라도 못 먹으면 리스트에 추가)
+        // 4. [중요] 음식 제약 사항 (합집합)
         Set<String> allRestrictions = participants.stream()
                 .filter(u -> u.getFoodRestrictions() != null)
                 .flatMap(u -> u.getFoodRestrictions().stream())
@@ -558,10 +576,10 @@ public class AiService {
         return String.format(
                 "=== [여행 그룹 프로필] ===\n" +
                         "- 총 인원: %d명\n" +
-                        "- [Majority Pace] 여행 페이스 (다수결): %s\n" +
-                        "- [Majority Rhythm] 하루 리듬 (다수결): %s\n" +
-                        "- [Food Preferences] 음식 선호 분포: %s (다수 의견 우선, 소수 의견도 고려)\n" +
-                        "- [CRITICAL_RESTRICTIONS] 절대 금지 음식 (전체 합집합): %s (이 재료는 무조건 피할 것)\n" +
+                        "- [Majority Pace] 여행 페이스: %s\n" +
+                        "- [Majority Rhythm] 하루 리듬: %s\n" +
+                        "- [Food Preferences] 선호 음식: %s\n" +
+                        "- [CRITICAL_RESTRICTIONS] 절대 금지 음식: %s (이 재료/음식이 포함된 식당은 절대 추천하지 말 것)\n" +
                         "========================\n",
                 totalMembers, majorityPace, majorityRhythm, foodPreferencesStr, restrictionStr
         );
