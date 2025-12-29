@@ -6,6 +6,7 @@ import g3pjt.service.user.userdto.SignupRequestDto;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.apache.coyote.Response;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -65,6 +66,26 @@ public class UserController {
     public ResponseEntity<Void> googleLogin() {
         return ResponseEntity.status(HttpStatus.FOUND)
                 .header("Location", "/oauth2/authorization/google")
+                .build();
+    }
+
+    /** 카카오 로그인 **/
+    @Operation(summary="카카오 로그인", description = "카카오 OAuth2 인증 페이지로 리다이렉트합니다. (브라우저에서 직접 호출)")
+    @GetMapping("/kakao/login")
+    public ResponseEntity<Void> kakaoLogin() {
+        return ResponseEntity.status(HttpStatus.FOUND)
+                .header("Location", "/oauth2/authorization/kakao")
+                .build();
+    }
+
+    /**
+     * 네이버 로그인
+     */
+    @Operation(summary = "네이버 로그인", description = "네이버 OAuth2 인증 페이지로 리다이렉트합니다.")
+    @GetMapping("/naver/login")
+    public ResponseEntity<Void> naverLogin() {
+        return ResponseEntity.status(HttpStatus.FOUND)
+                .header("Location", "/oauth2/authorization/naver")
                 .build();
     }
 
