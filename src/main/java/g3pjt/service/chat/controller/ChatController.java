@@ -3,9 +3,11 @@ package g3pjt.service.chat.controller;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import g3pjt.service.chat.domain.ChatDocument;
 import g3pjt.service.chat.domain.ChatRoom;
@@ -20,6 +22,7 @@ import g3pjt.service.user.User;
 import g3pjt.service.user.UserService;
 
 import java.util.List;
+import java.util.Map;
 
 @Tag(name = "Chat API", description = "채팅 내역 조회 API")
 @RestController
@@ -103,6 +106,21 @@ public class ChatController {
             org.springframework.security.core.Authentication authentication
     ) {
         return chatService.getRoomMembers(roomId, authentication);
+    }
+
+    @Operation(summary = "채팅 이미지 업로드", description = "채팅방에 업로드할 이미지를 Supabase Storage에 업로드하고 public URL을 반환합니다. (방 멤버만 가능)")
+    @PostMapping(value = "/rooms/{roomId}/images", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<Map<String, String>> uploadChatImage(
+            @PathVariable Long roomId,
+            @RequestPart("file") MultipartFile file,
+            org.springframework.security.core.Authentication authentication
+    ) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return ResponseEntity.status(401).build();
+        }
+
+        String imageUrl = chatService.uploadChatImage(roomId, file, authentication);
+        return ResponseEntity.ok(Map.of("imageUrl", imageUrl));
     }
 
     @Operation(summary = "채팅방 삭제(방폭파)", description = "채팅방을 삭제하고 채팅 내역을 모두 삭제합니다. (방장만 가능)")

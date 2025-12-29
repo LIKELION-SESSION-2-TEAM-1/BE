@@ -14,7 +14,7 @@ import java.time.Instant;
 @AllArgsConstructor
 @Builder
 public class ChatDto {
-    public enum MessageType{JOIN, TALK, LEAVE, DM}
+    public enum MessageType{JOIN, TALK, LEAVE, DM, IMAGE}
 
     private Long chatRoomId;
     private Long senderUserId; 
@@ -22,6 +22,8 @@ public class ChatDto {
     private Long receiverUserId; 
     private String receiverName;
     private String message;
+
+    private String imageUrl;
 
     private MessageType messageType;
 

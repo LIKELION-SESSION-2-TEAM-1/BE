@@ -83,6 +83,66 @@ public class SupabaseStorageService {
         return buildPublicObjectUrl(baseUrl, bucket, objectPath);
     }
 
+    public String uploadChatImage(Long roomId, String username, MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("업로드할 파일이 비어 있습니다.");
+        }
+
+        String contentTypeValue = file.getContentType();
+        MediaType contentType = (contentTypeValue != null ? MediaType.parseMediaType(contentTypeValue) : MediaType.APPLICATION_OCTET_STREAM);
+
+        // 최소한의 안전장치: 이미지 타입만 허용
+        if (!(MediaType.IMAGE_JPEG.includes(contentType)
+                || MediaType.IMAGE_PNG.includes(contentType)
+                || MediaType.valueOf("image/webp").includes(contentType))) {
+            throw new IllegalArgumentException("이미지 파일만 업로드할 수 있습니다. (jpg/png/webp)");
+        }
+
+        String baseUrl = requireValue(properties.getUrl(), "SUPABASE_URL");
+        String serviceRoleKey = requireValue(properties.getServiceRoleKey(), "SUPABASE_SERVICE_ROLE_KEY");
+        String bucket = requireValue(properties.getStorage().getBucket(), "SUPABASE_STORAGE_BUCKET");
+
+        String extension = guessExtension(file, contentType);
+        String safeUser = safePathSegment(username);
+        String safeRoom = (roomId == null ? "unknown" : String.valueOf(roomId));
+        String objectPath = "chats/" + safeRoom + "/" + safeUser + "/" + UUID.randomUUID() + extension;
+
+        byte[] bytes;
+        try {
+            bytes = file.getBytes();
+        } catch (IOException e) {
+            throw new IllegalStateException("파일을 읽을 수 없습니다.", e);
+        }
+
+        URI uploadUri = buildObjectUploadUri(baseUrl, bucket, objectPath);
+
+        try {
+            restClient
+                    .post()
+                    .uri(uploadUri)
+                    .header("Authorization", "Bearer " + serviceRoleKey)
+                    .header("apikey", serviceRoleKey)
+                    .header("x-upsert", "true")
+                    .contentType(contentType)
+                    .body(bytes)
+                    .retrieve()
+                    .toBodilessEntity();
+        } catch (RestClientResponseException e) {
+            String body = e.getResponseBodyAsString();
+            String message = "Supabase 업로드 실패 (HTTP " + e.getStatusCode().value() + ")";
+            if (StringUtils.hasText(body)) {
+                message += ": " + body;
+            }
+            throw new IllegalArgumentException(message, e);
+        }
+
+        if (!properties.getStorage().isPublicBucket()) {
+            return null;
+        }
+
+        return buildPublicObjectUrl(baseUrl, bucket, objectPath);
+    }
+
     private static String requireValue(String value, String envName) {
         if (!StringUtils.hasText(value)) {
             // 컨트롤러의 IllegalArgumentException 핸들러로 400 응답을 내려주기 위함

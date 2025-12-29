@@ -8,11 +8,13 @@ import g3pjt.service.chat.dto.ChatRoomMembersResponse;
 import g3pjt.service.chat.dto.InviteLinkResponse;
 import g3pjt.service.chat.repository.ChatRepository;
 import g3pjt.service.chat.repository.ChatRoomRepository;
+import g3pjt.service.storage.SupabaseStorageService;
 import g3pjt.service.user.User;
 import g3pjt.service.user.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -27,6 +29,7 @@ public class ChatService {
     private final ChatRoomRepository chatRoomRepository;
     private final ChatRepository chatRepository;
     private final UserService userService;
+    private final SupabaseStorageService supabaseStorageService;
 
     public ChatRoom createRoom(ChatRoomRequest request, Authentication authentication) {
         String username = authentication.getName();
@@ -61,6 +64,16 @@ public class ChatService {
         return chatRepository.findByChatRoomIdOrderByTimestampAsc(chatRoomId);
     }
 
+    public String uploadChatImage(Long roomId, MultipartFile file, Authentication authentication) {
+        ChatRoom room = getRoomOrThrow(roomId);
+
+        Long requesterId = getRequesterUserId(authentication);
+        ensureMember(room, requesterId);
+
+        String username = authentication.getName();
+        return supabaseStorageService.uploadChatImage(roomId, username, file);
+    }
+
     public ChatRoomMembersResponse getRoomMembers(Long roomId, Authentication authentication) {
         ChatRoom room = getRoomOrThrow(roomId);
 
@@ -71,6 +84,7 @@ public class ChatService {
                 .map(memberId -> ChatMemberResponse.builder()
                         .userId(memberId)
                         .displayName(userService.getDisplayNameByUserId(memberId))
+                .profileImageUrl(userService.getProfileImageUrlByUserId(memberId))
                         .build())
                 .collect(Collectors.toList());
 
