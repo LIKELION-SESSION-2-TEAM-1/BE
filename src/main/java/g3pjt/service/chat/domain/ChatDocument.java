@@ -27,6 +27,8 @@ public class ChatDocument {
     private String receiverName;
     private String message;
 
+    private String imageUrl;
+
     private ChatDto.MessageType messageType;
 
     private Instant timestamp;

@@ -73,6 +73,13 @@ public class UserService {
                 }).orElse("unknown");
     }
 
+    public String getProfileImageUrlByUserId(Long userId) {
+        if (userId == null) return null;
+        return userRepository.findById(userId)
+                .map(User::getProfileImageUrl)
+                .orElse(null);
+    }
+
     /**
      * 프로필 수정
      */

@@ -3,6 +3,7 @@ package g3pjt.service.chat.service;
 import g3pjt.service.chat.domain.ChatRoom;
 import g3pjt.service.chat.repository.ChatRepository;
 import g3pjt.service.chat.repository.ChatRoomRepository;
+import g3pjt.service.storage.SupabaseStorageService;
 import g3pjt.service.user.User;
 import g3pjt.service.user.UserService;
 import org.junit.jupiter.api.Test;
@@ -37,7 +38,9 @@ class ChatRoomAdminTest {
 
         when(chatRoomRepository.findByRoomId(10L)).thenReturn(room);
 
-        ChatService service = new ChatService(chatRoomRepository, chatRepository, userService);
+        SupabaseStorageService supabaseStorageService = mock(SupabaseStorageService.class);
+
+        ChatService service = new ChatService(chatRoomRepository, chatRepository, userService, supabaseStorageService);
 
         assertThatThrownBy(() -> service.deleteRoom(10L, authentication))
                 .isInstanceOf(IllegalArgumentException.class)
