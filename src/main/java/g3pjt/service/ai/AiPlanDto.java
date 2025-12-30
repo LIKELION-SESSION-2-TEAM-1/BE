@@ -1,5 +1,6 @@
 package g3pjt.service.ai;
 
+import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -37,6 +38,12 @@ public class AiPlanDto {
     @Data
     @AllArgsConstructor
     @NoArgsConstructor
+    @JsonAutoDetect(
+            fieldVisibility = JsonAutoDetect.Visibility.ANY,
+            getterVisibility = JsonAutoDetect.Visibility.NONE,
+            isGetterVisibility = JsonAutoDetect.Visibility.NONE,
+            setterVisibility = JsonAutoDetect.Visibility.NONE
+    )
     public static class Place {
         @Schema(description = "장소 이름", example = "협재 해수욕장")
         private String name;
