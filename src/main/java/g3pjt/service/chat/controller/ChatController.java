@@ -14,6 +14,9 @@ import g3pjt.service.chat.domain.ChatRoom;
 import g3pjt.service.chat.dto.AddMemberRequest;
 import g3pjt.service.chat.dto.ChatRoomRequest;
 import g3pjt.service.chat.dto.ChatRoomMembersResponse;
+import g3pjt.service.chat.dto.ChatMessageSearchResponse;
+import g3pjt.service.chat.dto.ChatRoomSearchResponse;
+import g3pjt.service.chat.dto.ChatSearchResponse;
 import g3pjt.service.chat.dto.ChatRoomSummaryResponse;
 import g3pjt.service.chat.dto.ChatUserSearchResponse;
 import g3pjt.service.chat.dto.InviteLinkResponse;
@@ -146,6 +149,64 @@ public class ChatController {
     @GetMapping("/rooms")
     public List<ChatRoom> getMyRooms(org.springframework.security.core.Authentication authentication) {
         return chatService.getMyRooms(authentication);
+    }
+
+    @Operation(summary = "채팅 검색(전체)", description = "내가 참여 중인 채팅방 기준으로 채팅방 이름/메시지 내용을 keyword로 검색합니다. (요약: 기본 3개씩)")
+    @GetMapping("/search")
+    public ResponseEntity<ChatSearchResponse> search(
+            @RequestParam String keyword,
+            @RequestParam(required = false) Integer roomLimit,
+            @RequestParam(required = false) Integer messageLimit,
+            org.springframework.security.core.Authentication authentication
+    ) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return ResponseEntity.status(401).build();
+        }
+        try {
+            return ResponseEntity.ok(chatService.search(authentication, keyword, roomLimit, messageLimit));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    @Operation(summary = "채팅방 검색(더보기)", description = "내가 참여 중인 채팅방 이름을 keyword로 검색합니다.")
+    @GetMapping("/search/rooms")
+    public ResponseEntity<List<ChatRoomSearchResponse>> searchRooms(
+            @RequestParam String keyword,
+            @RequestParam(defaultValue = "20") int limit,
+            org.springframework.security.core.Authentication authentication
+    ) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return ResponseEntity.status(401).build();
+        }
+        try {
+            return ResponseEntity.ok(chatService.searchRooms(authentication, keyword, limit));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    @Operation(summary = "메시지 검색(더보기)", description = "내가 참여 중인 채팅방들의 메시지 내용을 keyword로 검색합니다. timestamp 내림차순")
+    @GetMapping("/search/messages")
+    public ResponseEntity<List<ChatMessageSearchResponse>> searchMessages(
+            @RequestParam String keyword,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            org.springframework.security.core.Authentication authentication
+    ) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return ResponseEntity.status(401).build();
+        }
+        try {
+            org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(
+                    Math.max(0, page),
+                    Math.max(1, Math.min(size, 50)),
+                    org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "timestamp")
+            );
+            return ResponseEntity.ok(chatService.searchMessages(authentication, keyword, pageable));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().build();
+        }
     }
 
     @Operation(summary = "내 채팅방 목록(안읽은 개수 포함)", description = "내가 참여 중인 채팅방 목록과 방별 안읽은 메시지 개수를 조회합니다.")

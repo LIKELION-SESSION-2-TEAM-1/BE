@@ -6,6 +6,9 @@ import g3pjt.service.chat.domain.ChatRoomReadState;
 import g3pjt.service.chat.dto.ChatMemberResponse;
 import g3pjt.service.chat.dto.ChatRoomRequest;
 import g3pjt.service.chat.dto.ChatRoomMembersResponse;
+import g3pjt.service.chat.dto.ChatMessageSearchResponse;
+import g3pjt.service.chat.dto.ChatRoomSearchResponse;
+import g3pjt.service.chat.dto.ChatSearchResponse;
 import g3pjt.service.chat.dto.ChatRoomSummaryResponse;
 import g3pjt.service.chat.dto.InviteLinkResponse;
 import g3pjt.service.chat.repository.ChatRepository;
@@ -15,6 +18,9 @@ import g3pjt.service.storage.SupabaseStorageService;
 import g3pjt.service.user.User;
 import g3pjt.service.user.UserService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -22,8 +28,12 @@ import org.springframework.web.multipart.MultipartFile;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Service
@@ -63,6 +73,96 @@ public class ChatService {
         String username = authentication.getName();
         User user = userService.getUserProfile(username);
         return chatRoomRepository.findByMemberIdsContains(user.getId());
+    }
+
+    public ChatSearchResponse search(Authentication authentication, String keyword, Integer roomLimit, Integer messageLimit) {
+        String safeKeyword = safeKeyword(keyword);
+        int safeRoomLimit = clamp(roomLimit != null ? roomLimit : 3, 0, 20);
+        int safeMessageLimit = clamp(messageLimit != null ? messageLimit : 3, 0, 20);
+
+        List<ChatRoomSearchResponse> rooms = searchRooms(authentication, safeKeyword, safeRoomLimit);
+        List<ChatMessageSearchResponse> messages = searchMessages(
+                authentication,
+                safeKeyword,
+                PageRequest.of(0, safeMessageLimit, Sort.by(Sort.Direction.DESC, "timestamp"))
+        );
+
+        return ChatSearchResponse.builder()
+                .rooms(rooms)
+                .messages(messages)
+                .build();
+    }
+
+    public List<ChatRoomSearchResponse> searchRooms(Authentication authentication, String keyword, int limit) {
+        String safeKeyword = safeKeyword(keyword);
+        int safeLimit = clamp(limit, 0, 100);
+
+        Long userId = getRequesterUserId(authentication);
+        List<ChatRoom> rooms = chatRoomRepository.findByMemberIdsContains(userId);
+        String normalized = safeKeyword.toLowerCase(Locale.ROOT);
+
+        return rooms.stream()
+                .filter(r -> r.getName() != null && r.getName().toLowerCase(Locale.ROOT).contains(normalized))
+                .limit(safeLimit)
+                .map(r -> {
+                    ChatDocument last = chatRepository.findFirstByChatRoomIdOrderByTimestampDesc(r.getRoomId()).orElse(null);
+                    return ChatRoomSearchResponse.builder()
+                            .roomId(r.getRoomId())
+                            .name(r.getName())
+                            .lastMessage(last != null ? last.getMessage() : null)
+                            .lastMessageAt(last != null ? last.getTimestamp() : null)
+                            .build();
+                })
+                .toList();
+    }
+
+    public List<ChatMessageSearchResponse> searchMessages(Authentication authentication, String keyword, Pageable pageable) {
+        String safeKeyword = safeKeyword(keyword);
+
+        Long userId = getRequesterUserId(authentication);
+        List<ChatRoom> rooms = chatRoomRepository.findByMemberIdsContains(userId);
+        if (rooms.isEmpty()) {
+            return List.of();
+        }
+
+        List<Long> roomIds = rooms.stream().map(ChatRoom::getRoomId).toList();
+
+        Map<Long, String> roomNameById = new HashMap<>();
+        for (ChatRoom r : rooms) {
+            if (r.getRoomId() != null) {
+                roomNameById.put(r.getRoomId(), r.getName());
+            }
+        }
+
+        String regex = ".*" + Pattern.quote(safeKeyword) + ".*";
+        List<ChatDocument> docs = chatRepository.searchByRoomIdsAndMessageRegex(roomIds, regex, pageable);
+
+        return docs.stream()
+                .map(doc -> ChatMessageSearchResponse.builder()
+                        .messageId(doc.getId())
+                        .roomId(doc.getChatRoomId())
+                        .roomName(roomNameById.get(doc.getChatRoomId()))
+                        .senderUserId(doc.getSenderUserId())
+                        .senderName(doc.getSenderName())
+                        .message(doc.getMessage())
+                        .timestamp(doc.getTimestamp())
+                        .build())
+                .toList();
+    }
+
+    private String safeKeyword(String keyword) {
+        if (keyword == null) {
+            throw new IllegalArgumentException("keyword가 비어있습니다.");
+        }
+        String trimmed = keyword.trim();
+        if (trimmed.isEmpty()) {
+            throw new IllegalArgumentException("keyword가 비어있습니다.");
+        }
+        return trimmed;
+    }
+
+    private int clamp(int value, int min, int max) {
+        return Math.max(min, Math.min(max, value));
     }
 
         public List<ChatRoomSummaryResponse> getMyRoomSummaries(Authentication authentication) {

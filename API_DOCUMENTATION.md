@@ -256,3 +256,36 @@
 - `POST /api/chats/rooms/{roomId}/read`
 - Header: `Authorization: Bearer {Token}`
 - 동작: 해당 방을 "지금 시점까지 읽음" 처리하여 `unreadCount`가 0이 되도록 합니다.
+
+---
+
+## 🔍 8. 채팅 검색 (전체/채팅방/메시지)
+
+검색 화면(탭: 전체/채팅방/메시지) 구현을 위한 API입니다.
+
+### 8-1) 전체 검색(요약)
+- `GET /api/chats/search?keyword=부산`
+- Header: `Authorization: Bearer {Token}`
+- 설명: 채팅방 이름 검색 결과 + 메시지 내용 검색 결과를 **요약(기본 3개씩)** 으로 함께 반환
+- 응답 예시:
+```json
+{
+   "rooms": [
+      { "roomId": 123, "name": "부산 여행", "lastMessage": "아놔 ai가 일정 짜줬다", "lastMessageAt": "2025-12-30T10:15:00Z" }
+   ],
+   "messages": [
+      { "messageId": "...", "roomId": 123, "roomName": "부산 여행", "senderUserId": 1, "senderName": "부산여행", "message": "부산까지 가는데 2박은 있어야지", "timestamp": "2025-09-20T00:00:00Z" }
+   ]
+}
+```
+
+### 8-2) 채팅방 검색(더보기)
+- `GET /api/chats/search/rooms?keyword=부산&limit=20`
+- Header: `Authorization: Bearer {Token}`
+- 응답: `ChatRoomSearchResponse[]`
+
+### 8-3) 메시지 검색(더보기)
+- `GET /api/chats/search/messages?keyword=부산&page=0&size=20`
+- Header: `Authorization: Bearer {Token}`
+- 정렬: `timestamp` 내림차순
+- 응답: `ChatMessageSearchResponse[]`
