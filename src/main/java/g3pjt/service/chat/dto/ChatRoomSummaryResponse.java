@@ -12,6 +12,8 @@ public class ChatRoomSummaryResponse {
     private Long roomId;
     private String name;
 
+    private String imageUrl;
+
     private LocalDate startDate;
     private LocalDate endDate;
     private String travelStyle;

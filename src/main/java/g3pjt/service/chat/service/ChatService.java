@@ -201,6 +201,7 @@ public class ChatService {
                 return ChatRoomSummaryResponse.builder()
                     .roomId(room.getRoomId())
                     .name(room.getName())
+                    .imageUrl(room.getImageUrl())
                     .startDate(room.getStartDate())
                     .endDate(room.getEndDate())
                     .travelStyle(room.getTravelStyle())
