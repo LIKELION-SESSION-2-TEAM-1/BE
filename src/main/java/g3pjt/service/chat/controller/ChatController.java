@@ -132,6 +132,15 @@ public class ChatController {
         chatService.deleteRoom(roomId, authentication);
     }
 
+    @Operation(summary = "채팅방 나가기", description = "채팅방은 유지하고, 본인만 채팅방 멤버에서 제외됩니다. (방 멤버만 가능)")
+    @DeleteMapping("/rooms/{roomId}/leave")
+    public ChatRoom leaveRoom(
+            @PathVariable Long roomId,
+            org.springframework.security.core.Authentication authentication
+    ) {
+        return chatService.leaveRoom(roomId, authentication);
+    }
+
     @Operation(summary = "내 채팅방 목록 조회", description = "내가 참여 중인 채팅방 목록을 조회합니다.")
     @GetMapping("/rooms")
     public List<ChatRoom> getMyRooms(org.springframework.security.core.Authentication authentication) {

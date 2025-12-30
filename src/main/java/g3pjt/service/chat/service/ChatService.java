@@ -110,6 +110,28 @@ public class ChatService {
         chatRoomRepository.delete(room);
     }
 
+    public ChatRoom leaveRoom(Long roomId, Authentication authentication) {
+        ChatRoom room = getRoomOrThrow(roomId);
+
+        Long requesterId = getRequesterUserId(authentication);
+        ensureMember(room, requesterId);
+
+        List<Long> updatedMembers = new ArrayList<>(room.getMemberIds());
+        updatedMembers.removeIf(memberId -> memberId != null && memberId.equals(requesterId));
+        room.setMemberIds(updatedMembers);
+
+        Long ownerId = resolveOwnerUserId(room);
+        if (ownerId != null && ownerId.equals(requesterId)) {
+            if (!updatedMembers.isEmpty()) {
+                room.setOwnerUserId(updatedMembers.get(0));
+            } else {
+                room.setOwnerUserId(null);
+            }
+        }
+
+        return chatRoomRepository.save(room);
+    }
+
     public ChatRoom addMemberByIdentifier(Long roomId, String identifier, Authentication authentication) {
         ChatRoom room = getRoomOrThrow(roomId);
 
