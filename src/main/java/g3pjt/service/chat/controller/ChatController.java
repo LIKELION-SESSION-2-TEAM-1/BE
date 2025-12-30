@@ -14,6 +14,7 @@ import g3pjt.service.chat.domain.ChatRoom;
 import g3pjt.service.chat.dto.AddMemberRequest;
 import g3pjt.service.chat.dto.ChatRoomRequest;
 import g3pjt.service.chat.dto.ChatRoomMembersResponse;
+import g3pjt.service.chat.dto.ChatRoomSummaryResponse;
 import g3pjt.service.chat.dto.ChatUserSearchResponse;
 import g3pjt.service.chat.dto.InviteLinkResponse;
 import g3pjt.service.chat.dto.JoinRoomRequest;
@@ -145,6 +146,35 @@ public class ChatController {
     @GetMapping("/rooms")
     public List<ChatRoom> getMyRooms(org.springframework.security.core.Authentication authentication) {
         return chatService.getMyRooms(authentication);
+    }
+
+    @Operation(summary = "내 채팅방 목록(안읽은 개수 포함)", description = "내가 참여 중인 채팅방 목록과 방별 안읽은 메시지 개수를 조회합니다.")
+    @GetMapping("/rooms/summary")
+    public ResponseEntity<List<ChatRoomSummaryResponse>> getMyRoomSummaries(
+            org.springframework.security.core.Authentication authentication
+    ) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return ResponseEntity.status(401).build();
+        }
+        return ResponseEntity.ok(chatService.getMyRoomSummaries(authentication));
+    }
+
+    @Operation(summary = "채팅방 읽음 처리", description = "특정 채팅방을 '지금 시점까지 읽음'으로 처리하여 안읽은 개수를 0으로 만듭니다. (방 멤버만 가능)")
+    @PostMapping("/rooms/{roomId}/read")
+    public ResponseEntity<Void> markRoomAsRead(
+            @PathVariable Long roomId,
+            org.springframework.security.core.Authentication authentication
+    ) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return ResponseEntity.status(401).build();
+        }
+
+        try {
+            chatService.markRoomAsRead(roomId, authentication);
+            return ResponseEntity.noContent().build();
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(403).build();
+        }
     }
 
     @Operation(summary = "채팅 내역 조회", description = "특정 채팅방의 지난 대화 내용을 조회합니다.")

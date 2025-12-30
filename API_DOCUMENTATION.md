@@ -226,3 +226,33 @@
 2. **프로필 수정**: 닉네임만 바꿔보고, 다른 정보(생일 등)가 날라가지 않고 유지되는지 확인.
 3. **채팅방**: 방을 하나 만들고 목록 조회(`GET /rooms`) 시 그 방이 나오는지 확인.
 4. **AI 플랜**: `POST /api/ai/plan/confirm` 시 Body에 `chatRoomId` 포함 → `GET /api/ai/plans?chatRoomId=해당값`으로 조회 시 화면에 일정이 표시되는지 확인.
+
+---
+
+## 💬 7. 채팅 - 안 읽은 메시지(Unread)
+
+프론트에서 채팅방 목록에 **안 읽은 메시지 개수 배지**를 표시하기 위한 최소 API입니다.
+
+### 7-1) 내 채팅방 목록(안읽은 개수 포함)
+- `GET /api/chats/rooms/summary`
+- Header: `Authorization: Bearer {Token}`
+- 응답 예시:
+```json
+[
+   {
+      "roomId": 123,
+      "name": "부산 여행",
+      "startDate": "2025-01-01",
+      "endDate": "2025-01-03",
+      "travelStyle": "느긋하게",
+      "createdAt": "2025-12-30T12:34:56",
+      "ownerUserId": 1,
+      "unreadCount": 5
+   }
+]
+```
+
+### 7-2) 읽음 처리(배지 0으로)
+- `POST /api/chats/rooms/{roomId}/read`
+- Header: `Authorization: Bearer {Token}`
+- 동작: 해당 방을 "지금 시점까지 읽음" 처리하여 `unreadCount`가 0이 되도록 합니다.

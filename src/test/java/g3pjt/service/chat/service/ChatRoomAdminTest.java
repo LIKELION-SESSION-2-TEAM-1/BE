@@ -3,6 +3,7 @@ package g3pjt.service.chat.service;
 import g3pjt.service.chat.domain.ChatRoom;
 import g3pjt.service.chat.repository.ChatRepository;
 import g3pjt.service.chat.repository.ChatRoomRepository;
+import g3pjt.service.chat.repository.ChatRoomReadStateRepository;
 import g3pjt.service.storage.SupabaseStorageService;
 import g3pjt.service.user.User;
 import g3pjt.service.user.UserService;
@@ -41,8 +42,9 @@ class ChatRoomAdminTest {
         when(chatRoomRepository.findByRoomId(10L)).thenReturn(room);
 
         SupabaseStorageService supabaseStorageService = mock(SupabaseStorageService.class);
+        ChatRoomReadStateRepository chatRoomReadStateRepository = mock(ChatRoomReadStateRepository.class);
 
-        ChatService service = new ChatService(chatRoomRepository, chatRepository, userService, supabaseStorageService);
+        ChatService service = new ChatService(chatRoomRepository, chatRepository, chatRoomReadStateRepository, userService, supabaseStorageService);
 
         assertThatThrownBy(() -> service.deleteRoom(10L, authentication))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -78,7 +80,8 @@ class ChatRoomAdminTest {
         when(chatRoomRepository.save(savedCaptor.capture())).thenAnswer(inv -> inv.getArgument(0));
 
         SupabaseStorageService supabaseStorageService = mock(SupabaseStorageService.class);
-        ChatService service = new ChatService(chatRoomRepository, chatRepository, userService, supabaseStorageService);
+        ChatRoomReadStateRepository chatRoomReadStateRepository = mock(ChatRoomReadStateRepository.class);
+        ChatService service = new ChatService(chatRoomRepository, chatRepository, chatRoomReadStateRepository, userService, supabaseStorageService);
 
         ChatRoom updated = service.leaveRoom(10L, authentication);
 
@@ -114,7 +117,8 @@ class ChatRoomAdminTest {
         when(chatRoomRepository.save(any(ChatRoom.class))).thenAnswer(inv -> inv.getArgument(0));
 
         SupabaseStorageService supabaseStorageService = mock(SupabaseStorageService.class);
-        ChatService service = new ChatService(chatRoomRepository, chatRepository, userService, supabaseStorageService);
+        ChatRoomReadStateRepository chatRoomReadStateRepository = mock(ChatRoomReadStateRepository.class);
+        ChatService service = new ChatService(chatRoomRepository, chatRepository, chatRoomReadStateRepository, userService, supabaseStorageService);
 
         ChatRoom updated = service.leaveRoom(10L, authentication);
 

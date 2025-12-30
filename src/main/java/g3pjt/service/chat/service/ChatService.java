@@ -2,12 +2,15 @@ package g3pjt.service.chat.service;
 
 import g3pjt.service.chat.domain.ChatDocument;
 import g3pjt.service.chat.domain.ChatRoom;
+import g3pjt.service.chat.domain.ChatRoomReadState;
 import g3pjt.service.chat.dto.ChatMemberResponse;
 import g3pjt.service.chat.dto.ChatRoomRequest;
 import g3pjt.service.chat.dto.ChatRoomMembersResponse;
+import g3pjt.service.chat.dto.ChatRoomSummaryResponse;
 import g3pjt.service.chat.dto.InviteLinkResponse;
 import g3pjt.service.chat.repository.ChatRepository;
 import g3pjt.service.chat.repository.ChatRoomRepository;
+import g3pjt.service.chat.repository.ChatRoomReadStateRepository;
 import g3pjt.service.storage.SupabaseStorageService;
 import g3pjt.service.user.User;
 import g3pjt.service.user.UserService;
@@ -16,6 +19,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -28,6 +32,7 @@ public class ChatService {
 
     private final ChatRoomRepository chatRoomRepository;
     private final ChatRepository chatRepository;
+    private final ChatRoomReadStateRepository chatRoomReadStateRepository;
     private final UserService userService;
     private final SupabaseStorageService supabaseStorageService;
 
@@ -59,6 +64,58 @@ public class ChatService {
         User user = userService.getUserProfile(username);
         return chatRoomRepository.findByMemberIdsContains(user.getId());
     }
+
+        public List<ChatRoomSummaryResponse> getMyRoomSummaries(Authentication authentication) {
+        String username = authentication.getName();
+        User user = userService.getUserProfile(username);
+        Long userId = user.getId();
+
+        List<ChatRoom> rooms = chatRoomRepository.findByMemberIdsContains(userId);
+        Instant now = Instant.now();
+
+        return rooms.stream()
+            .map(room -> {
+                ChatRoomReadState readState = chatRoomReadStateRepository.findByRoomIdAndUserId(room.getRoomId(), userId)
+                    .orElseGet(() -> initializeReadState(room.getRoomId(), userId, now));
+
+                Instant lastReadAt = readState.getLastReadAt() == null ? now : readState.getLastReadAt();
+                long unreadCount = chatRepository.countByChatRoomIdAndTimestampAfterAndSenderUserIdNot(
+                    room.getRoomId(),
+                    lastReadAt,
+                    userId
+                );
+
+                return ChatRoomSummaryResponse.builder()
+                    .roomId(room.getRoomId())
+                    .name(room.getName())
+                    .startDate(room.getStartDate())
+                    .endDate(room.getEndDate())
+                    .travelStyle(room.getTravelStyle())
+                    .createdAt(room.getCreatedAt())
+                    .ownerUserId(resolveOwnerUserId(room))
+                    .unreadCount(unreadCount)
+                    .build();
+            })
+            .toList();
+        }
+
+        public void markRoomAsRead(Long roomId, Authentication authentication) {
+        ChatRoom room = getRoomOrThrow(roomId);
+
+        Long requesterId = getRequesterUserId(authentication);
+        ensureMember(room, requesterId);
+
+        Instant now = Instant.now();
+        ChatRoomReadState state = chatRoomReadStateRepository.findByRoomIdAndUserId(roomId, requesterId)
+            .orElse(ChatRoomReadState.builder()
+                .roomId(roomId)
+                .userId(requesterId)
+                .build());
+
+        state.setLastReadAt(now);
+        state.setUpdatedAt(now);
+        chatRoomReadStateRepository.save(state);
+        }
 
     public List<ChatDocument> getChatHistory(Long chatRoomId) {
         return chatRepository.findByChatRoomIdOrderByTimestampAsc(chatRoomId);
@@ -185,6 +242,17 @@ public class ChatService {
             room = chatRoomRepository.save(room);
         }
         return room;
+    }
+
+    private ChatRoomReadState initializeReadState(Long roomId, Long userId, Instant now) {
+        ChatRoomReadState state = ChatRoomReadState.builder()
+                .roomId(roomId)
+                .userId(userId)
+                // 최초 도입 시 기존 메시지 전부 unread로 뜨는 걸 방지하기 위해, 첫 조회 시점으로 초기화
+                .lastReadAt(now)
+                .updatedAt(now)
+                .build();
+        return chatRoomReadStateRepository.save(state);
     }
 
     ChatRoom getRoomOrThrow(Long roomId) {

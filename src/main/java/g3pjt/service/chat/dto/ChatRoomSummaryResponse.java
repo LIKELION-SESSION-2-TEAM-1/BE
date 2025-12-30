@@ -1,0 +1,23 @@
+package g3pjt.service.chat.dto;
+
+import lombok.Builder;
+import lombok.Getter;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+
+@Getter
+@Builder
+public class ChatRoomSummaryResponse {
+    private Long roomId;
+    private String name;
+
+    private LocalDate startDate;
+    private LocalDate endDate;
+    private String travelStyle;
+    private LocalDateTime createdAt;
+
+    private Long ownerUserId;
+
+    private long unreadCount;
+}
