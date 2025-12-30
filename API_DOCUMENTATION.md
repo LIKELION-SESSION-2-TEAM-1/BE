@@ -289,3 +289,31 @@
 - Header: `Authorization: Bearer {Token}`
 - 정렬: `timestamp` 내림차순
 - 응답: `ChatMessageSearchResponse[]`
+
+---
+
+## 🖼️ 9. 채팅방 대표 이미지
+
+채팅방 생성 시 대표 이미지를 함께 업로드할 수 있습니다.
+
+### 9-1) 채팅방 생성(대표 이미지 포함)
+- `POST /api/chats/rooms`
+- Header: `Authorization: Bearer {Token}`
+- Content-Type: `multipart/form-data`
+
+폼 데이터
+- `request` (JSON): 채팅방 생성 요청
+- `file` (이미지, optional): 채팅방 대표 이미지 (jpg/png/webp)
+
+`request` 예시(JSON)
+```json
+{
+   "name": "부산 여행",
+   "startDate": "2025-09-28",
+   "endDate": "2025-09-30",
+   "travelStyle": "food"
+}
+```
+
+응답
+- 기존 채팅방 생성 응답과 동일 + `imageUrl` 포함

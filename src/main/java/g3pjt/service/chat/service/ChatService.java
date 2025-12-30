@@ -69,6 +69,19 @@ public class ChatService {
         return chatRoomRepository.save(chatRoom);
     }
 
+    public ChatRoom createRoomWithImage(ChatRoomRequest request, MultipartFile file, Authentication authentication) {
+        ChatRoom room = createRoom(request, authentication);
+
+        if (file == null || file.isEmpty()) {
+            return room;
+        }
+
+        String username = authentication.getName();
+        String imageUrl = supabaseStorageService.uploadChatRoomImage(room.getRoomId(), username, file);
+        room.setImageUrl(imageUrl);
+        return chatRoomRepository.save(room);
+    }
+
     public List<ChatRoom> getMyRooms(Authentication authentication) {
         String username = authentication.getName();
         User user = userService.getUserProfile(username);

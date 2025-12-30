@@ -49,6 +49,24 @@ public class ChatController {
         return chatService.createRoom(request, authentication);
     }
 
+    @Operation(summary = "채팅방 생성(대표 이미지 포함)", description = "채팅방 생성 시 대표 이미지를 함께 업로드합니다. multipart/form-data로 request(JSON) + file(이미지)을 전송합니다.")
+    @PostMapping(value = "/rooms", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ChatRoom> createRoomWithImage(
+            @RequestPart("request") ChatRoomRequest request,
+            @RequestPart(value = "file", required = false) MultipartFile file,
+            org.springframework.security.core.Authentication authentication
+    ) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return ResponseEntity.status(401).build();
+        }
+
+        try {
+            return ResponseEntity.ok(chatService.createRoomWithImage(request, file, authentication));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
     @Operation(summary = "유저 검색(멤버 추가용)", description = "닉네임/이메일(=username)/아이디(username)로 유저를 검색해 표시 정보를 반환합니다.")
     @GetMapping("/users/search")
     public ResponseEntity<ChatUserSearchResponse> searchUser(

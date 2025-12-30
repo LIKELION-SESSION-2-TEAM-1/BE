@@ -22,6 +22,8 @@ public class ChatRoom {
     private Long roomId; // Numeric ID used in ChatDocument
     private String name;
 
+    private String imageUrl;
+
     private LocalDate startDate;
     private LocalDate endDate;
     private String travelStyle;
