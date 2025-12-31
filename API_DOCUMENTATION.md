@@ -172,6 +172,23 @@
 
 ---
 
+## 📖 4. 앱 설명 챗봇 (Docs Bot)
+**Base URL**: `/api/help`
+
+| Method | Endpoint | 설명 | 인증 |
+| :--- | :--- | :--- | :--- |
+| `POST` | `/chat` | 지식베이스(md)를 근거로 앱/백엔드 설명 답변 | (현재 설정상) X |
+
+### POST /api/help/chat (Body 예시)
+```json
+{
+   "question": "내 채팅방 목록은 어떤 API로 조회해?",
+   "chatHistory": ["사용자: ...", "봇: ..."]
+}
+```
+
+---
+
 ## ⭐ 5. 여행지 즐겨찾기 (Favorites)
 **Base URL**: `/api/favorites`
 

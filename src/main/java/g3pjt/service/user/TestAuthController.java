@@ -1,4 +1,4 @@
-package g3pjt.service.auth;
+package g3pjt.service.user;
 
 import g3pjt.service.user.User;
 import g3pjt.service.user.UserRepository;
