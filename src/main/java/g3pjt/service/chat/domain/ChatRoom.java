@@ -9,6 +9,8 @@ import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList; // List 초기화를 위해 추가
+import java.util.List;      // List 타입을 위해 추가
 
 @Data
 @Builder
@@ -26,15 +28,22 @@ public class ChatRoom {
 
     private LocalDate startDate;
     private LocalDate endDate;
+
     private String travelStyle;
+
+    // AiService에서 getStyles()를 호출할 때 사용되는 필드입니다.
+    // MongoDB에는 ["힐링", "먹방"] 형태의 배열로 저장됩니다.
+    @Builder.Default
+    private List<String> styles = new ArrayList<>();
+
     private LocalDateTime createdAt;
 
     private Long ownerUserId;
 
     private String inviteCode;
     private LocalDateTime inviteCodeCreatedAt;
-    
+
     // 채팅방 참여자 ID 목록 (User.id)
     @Builder.Default
-    private java.util.List<Long> memberIds = new java.util.ArrayList<>();
+    private List<Long> memberIds = new ArrayList<>();
 }
