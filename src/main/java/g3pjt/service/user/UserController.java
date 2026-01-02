@@ -52,21 +52,23 @@ public class UserController {
 
 
     /**
-     * 구글 로그인 (Swagger 설명용)
+     * 구글 로그인
      */
-    @Operation(summary = "구글 로그인", description = "구글 OAuth2 인증 페이지로 리다이렉트합니다. (브라우저에서 직접 호출)")
     @GetMapping("/google/login")
     public ResponseEntity<Void> googleLogin() {
         return ResponseEntity.status(HttpStatus.FOUND)
+                // 수정: 'authorization' 엔드포인트로 보내야 로그인이 시작됩니다.
                 .header("Location", "/oauth2/authorization/google")
                 .build();
     }
 
-    /** 카카오 로그인 **/
-    @Operation(summary="카카오 로그인", description = "카카오 OAuth2 인증 페이지로 리다이렉트합니다. (브라우저에서 직접 호출)")
+    /**
+     * 카카오 로그인
+     */
     @GetMapping("/kakao/login")
     public ResponseEntity<Void> kakaoLogin() {
         return ResponseEntity.status(HttpStatus.FOUND)
+                // 수정: 'authorization' 엔드포인트로 보내야 로그인이 시작됩니다.
                 .header("Location", "/oauth2/authorization/kakao")
                 .build();
     }
@@ -74,14 +76,13 @@ public class UserController {
     /**
      * 네이버 로그인
      */
-    @Operation(summary = "네이버 로그인", description = "네이버 OAuth2 인증 페이지로 리다이렉트합니다.")
     @GetMapping("/naver/login")
     public ResponseEntity<Void> naverLogin() {
         return ResponseEntity.status(HttpStatus.FOUND)
+                // 수정: 'authorization' 엔드포인트로 보내야 로그인이 시작됩니다.
                 .header("Location", "/oauth2/authorization/naver")
                 .build();
     }
-
     /**
      * 내 프로필 조회
      */

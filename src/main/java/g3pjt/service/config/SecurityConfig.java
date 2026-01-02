@@ -65,7 +65,7 @@ public class SecurityConfig {
         http.authorizeHttpRequests(authz ->
                 authz
                         // "/api/user/signup", "/api/user/login" URL은 인증 없이 무조건 허용
-                        .requestMatchers("/api/user/signup", "/api/user/login").permitAll()
+                        .requestMatchers("/api/user/signup", "/api/user/login", "/kakao/login", "/oauth2/**", "/login/**").permitAll()
 
                 // 내 프로필 API는 인증 필요
                 .requestMatchers("/api/user/profile").authenticated()

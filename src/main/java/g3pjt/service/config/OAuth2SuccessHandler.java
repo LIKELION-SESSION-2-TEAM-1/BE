@@ -8,6 +8,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.Cookie;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
@@ -44,46 +45,57 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
 
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response, Authentication authentication) throws IOException, ServletException {
-        // 1. 구글 로그인 사용자 정보 가져오기
         OAuth2User oAuth2User = (OAuth2User) authentication.getPrincipal();
         Map<String, Object> attributes = oAuth2User.getAttributes();
 
-        // 2. 이메일 추출 (구글은 "email" 키 사용)
-        String email = (String) attributes.get("email");
+        // 1. 서비스 제공자 구분 (google, kakao, naver)
+        String registrationId = ((OAuth2AuthenticationToken) authentication).getAuthorizedClientRegistrationId();
+        String username;
 
-        // 3. DB에서 사용자 확인 (없으면 회원가입)
-        User user = userRepository.findByUsername(email)
+        if ("kakao".equals(registrationId)) {
+            // 카카오는 고유 번호 id 사용
+            username = attributes.get("id").toString();
+        } else if ("naver".equals(registrationId)) {
+            // 네이버는 response 맵 내부의 id 사용
+            Map<String, Object> naverResponse = (Map<String, Object>) attributes.get("response");
+            username = (String) naverResponse.get("id");
+        } else {
+            // 기본값 (구글 등): 기존 방식대로 email 사용
+            username = (String) attributes.get("email");
+        }
+
+        // 2. DB 확인 (기존 변수명과 로직 그대로 유지)
+        final String finalUsername = username;
+        User user = userRepository.findByUsername(finalUsername)
                 .orElseGet(() -> {
-                    // 비밀번호는 OAuth 로그인이라 필요 없지만, DB 제약조건 때문에 임의의 값(UUID) 저장
-                    User newUser = new User(email, UUID.randomUUID().toString());
+                    // 기존 User 생성자가 (String, String) 구조인지 확인하세요.
+                    User newUser = new User(finalUsername, UUID.randomUUID().toString());
                     return userRepository.save(newUser);
                 });
 
-        // 4. JWT 토큰 생성
+        // 3. JWT 및 리다이렉트 처리 (기존 코드와 100% 동일)
         String token = jwtUtil.createToken(user.getUsername());
-        // "Bearer " 접두사 제거 (URL 파라미터로 전달하기 편하게)
         String cleanToken = token.replace(JwtUtil.BEARER_PREFIX, "");
 
-        // 5. Determine redirect destination from allowlisted redirect_uri (captured in cookie)
         String redirectUri = readRedirectUriCookie(request);
 
-        // Fallback to env FRONTEND_URL if cookie is missing
         if (!StringUtils.hasText(redirectUri)) {
             String frontendUrl = System.getenv("FRONTEND_URL");
             if (!StringUtils.hasText(frontendUrl)) {
-                frontendUrl = "https://tokplan.vercel.app";
+                // 로컬 테스트 중이라면 3000포트 주소를 여기에 넣으세요.
+                frontendUrl = "http://localhost:3000";
             }
             redirectUri = frontendUrl + "/home";
         }
 
+        // 기존의 allowlist 검증 로직 유지
         if (!allowedRedirectUris.contains(redirectUri)) {
-            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid redirect_uri");
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid redirect_uri: " + redirectUri);
             return;
         }
 
         clearRedirectUriCookie(response);
 
-        // Recommend fragment to reduce referrer/log exposure
         String targetUrl = redirectUri + "#token=" + cleanToken;
         response.sendRedirect(targetUrl);
     }
