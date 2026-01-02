@@ -85,13 +85,14 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
             String frontendUrl = System.getenv("FRONTEND_URL");
             if (!StringUtils.hasText(frontendUrl)) {
                 // 로컬 테스트 중이라면 3000포트 주소를 여기에 넣으세요.
-                frontendUrl = "http://localhost:3000";
+                frontendUrl = "https://tokplan.vercel.app";
             }
             redirectUri = frontendUrl + "/home";
         }
 
         // 기존의 allowlist 검증 로직 유지
         if (!allowedRedirectUris.contains(redirectUri)) {
+            System.out.println("검증 실패된 주소" + redirectUri);
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid redirect_uri: " + redirectUri);
             return;
         }
