@@ -14,6 +14,10 @@ import g3pjt.service.chat.domain.ChatRoom;
 import g3pjt.service.chat.dto.AddMemberRequest;
 import g3pjt.service.chat.dto.ChatRoomRequest;
 import g3pjt.service.chat.dto.ChatRoomMembersResponse;
+import g3pjt.service.chat.dto.ChatMessageSearchResponse;
+import g3pjt.service.chat.dto.ChatRoomSearchResponse;
+import g3pjt.service.chat.dto.ChatSearchResponse;
+import g3pjt.service.chat.dto.ChatRoomSummaryResponse;
 import g3pjt.service.chat.dto.ChatUserSearchResponse;
 import g3pjt.service.chat.dto.InviteLinkResponse;
 import g3pjt.service.chat.dto.JoinRoomRequest;
@@ -43,6 +47,24 @@ public class ChatController {
             org.springframework.security.core.Authentication authentication
     ) {
         return chatService.createRoom(request, authentication);
+    }
+
+    @Operation(summary = "채팅방 생성(대표 이미지 포함)", description = "채팅방 생성 시 대표 이미지를 함께 업로드합니다. multipart/form-data로 request(JSON) + file(이미지)을 전송합니다.")
+    @PostMapping(value = "/rooms", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ChatRoom> createRoomWithImage(
+            @RequestPart("request") ChatRoomRequest request,
+            @RequestPart(value = "file", required = false) MultipartFile file,
+            org.springframework.security.core.Authentication authentication
+    ) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return ResponseEntity.status(401).build();
+        }
+
+        try {
+            return ResponseEntity.ok(chatService.createRoomWithImage(request, file, authentication));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().build();
+        }
     }
 
     @Operation(summary = "유저 검색(멤버 추가용)", description = "닉네임/이메일(=username)/아이디(username)로 유저를 검색해 표시 정보를 반환합니다.")
@@ -132,10 +154,106 @@ public class ChatController {
         chatService.deleteRoom(roomId, authentication);
     }
 
+    @Operation(summary = "채팅방 나가기", description = "채팅방은 유지하고, 본인만 채팅방 멤버에서 제외됩니다. (방 멤버만 가능)")
+    @DeleteMapping("/rooms/{roomId}/leave")
+    public ChatRoom leaveRoom(
+            @PathVariable Long roomId,
+            org.springframework.security.core.Authentication authentication
+    ) {
+        return chatService.leaveRoom(roomId, authentication);
+    }
+
     @Operation(summary = "내 채팅방 목록 조회", description = "내가 참여 중인 채팅방 목록을 조회합니다.")
     @GetMapping("/rooms")
     public List<ChatRoom> getMyRooms(org.springframework.security.core.Authentication authentication) {
         return chatService.getMyRooms(authentication);
+    }
+
+    @Operation(summary = "채팅 검색(전체)", description = "내가 참여 중인 채팅방 기준으로 채팅방 이름/메시지 내용을 keyword로 검색합니다. (요약: 기본 3개씩)")
+    @GetMapping("/search")
+    public ResponseEntity<ChatSearchResponse> search(
+            @RequestParam String keyword,
+            @RequestParam(required = false) Integer roomLimit,
+            @RequestParam(required = false) Integer messageLimit,
+            org.springframework.security.core.Authentication authentication
+    ) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return ResponseEntity.status(401).build();
+        }
+        try {
+            return ResponseEntity.ok(chatService.search(authentication, keyword, roomLimit, messageLimit));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    @Operation(summary = "채팅방 검색(더보기)", description = "내가 참여 중인 채팅방 이름을 keyword로 검색합니다.")
+    @GetMapping("/search/rooms")
+    public ResponseEntity<List<ChatRoomSearchResponse>> searchRooms(
+            @RequestParam String keyword,
+            @RequestParam(defaultValue = "20") int limit,
+            org.springframework.security.core.Authentication authentication
+    ) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return ResponseEntity.status(401).build();
+        }
+        try {
+            return ResponseEntity.ok(chatService.searchRooms(authentication, keyword, limit));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    @Operation(summary = "메시지 검색(더보기)", description = "내가 참여 중인 채팅방들의 메시지 내용을 keyword로 검색합니다. timestamp 내림차순")
+    @GetMapping("/search/messages")
+    public ResponseEntity<List<ChatMessageSearchResponse>> searchMessages(
+            @RequestParam String keyword,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            org.springframework.security.core.Authentication authentication
+    ) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return ResponseEntity.status(401).build();
+        }
+        try {
+            org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(
+                    Math.max(0, page),
+                    Math.max(1, Math.min(size, 50)),
+                    org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "timestamp")
+            );
+            return ResponseEntity.ok(chatService.searchMessages(authentication, keyword, pageable));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    @Operation(summary = "내 채팅방 목록(안읽은 개수 포함)", description = "내가 참여 중인 채팅방 목록과 방별 안읽은 메시지 개수를 조회합니다.")
+    @GetMapping("/rooms/summary")
+    public ResponseEntity<List<ChatRoomSummaryResponse>> getMyRoomSummaries(
+            org.springframework.security.core.Authentication authentication
+    ) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return ResponseEntity.status(401).build();
+        }
+        return ResponseEntity.ok(chatService.getMyRoomSummaries(authentication));
+    }
+
+    @Operation(summary = "채팅방 읽음 처리", description = "특정 채팅방을 '지금 시점까지 읽음'으로 처리하여 안읽은 개수를 0으로 만듭니다. (방 멤버만 가능)")
+    @PostMapping("/rooms/{roomId}/read")
+    public ResponseEntity<Void> markRoomAsRead(
+            @PathVariable Long roomId,
+            org.springframework.security.core.Authentication authentication
+    ) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return ResponseEntity.status(401).build();
+        }
+
+        try {
+            chatService.markRoomAsRead(roomId, authentication);
+            return ResponseEntity.noContent().build();
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(403).build();
+        }
     }
 
     @Operation(summary = "채팅 내역 조회", description = "특정 채팅방의 지난 대화 내용을 조회합니다.")
