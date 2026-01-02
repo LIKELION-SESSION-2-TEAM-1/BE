@@ -20,6 +20,7 @@ import java.io.IOException;
 public class JwtAuthorizationFilter extends OncePerRequestFilter {
 
     private final JwtUtil jwtUtil;
+    private final TokenBlacklistService tokenBlacklistService;
 
     @Override
     protected void doFilterInternal(HttpServletRequest req, HttpServletResponse res, FilterChain filterChain) throws ServletException, IOException {
@@ -27,6 +28,11 @@ public class JwtAuthorizationFilter extends OncePerRequestFilter {
         String token = resolveToken(req);
 
         if (StringUtils.hasText(token)) {
+            if (tokenBlacklistService.isBlacklisted(token)) {
+                log.warn("Token is blacklisted");
+                filterChain.doFilter(req, res);
+                return;
+            }
             if (!jwtUtil.validateToken(token)) {
                 log.error("Token Error");
                 // Don't throw exception, just let it pass as anonymous or return 401?

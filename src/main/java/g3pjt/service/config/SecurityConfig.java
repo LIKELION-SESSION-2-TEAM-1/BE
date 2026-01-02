@@ -2,6 +2,7 @@ package g3pjt.service.config;
 
 import g3pjt.service.user.jwt.JwtAuthorizationFilter;
 import g3pjt.service.user.jwt.JwtUtil;
+import g3pjt.service.user.jwt.TokenBlacklistService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -14,6 +15,10 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequestRedirectFilter;
+import org.springframework.security.web.authentication.HttpStatusEntryPoint;
+import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
+
+import org.springframework.http.HttpStatus;
 
 import lombok.RequiredArgsConstructor;
 
@@ -23,6 +28,7 @@ import lombok.RequiredArgsConstructor;
 public class SecurityConfig {
 
     private final JwtUtil jwtUtil;
+    private final TokenBlacklistService tokenBlacklistService;
     private final OAuth2SuccessHandler oAuth2SuccessHandler;
     private final OAuth2RedirectUriCookieFilter oAuth2RedirectUriCookieFilter;
 
@@ -38,7 +44,7 @@ public class SecurityConfig {
 
     @Bean
     public JwtAuthorizationFilter jwtAuthorizationFilter() {
-        return new JwtAuthorizationFilter(jwtUtil);
+        return new JwtAuthorizationFilter(jwtUtil, tokenBlacklistService);
     }
 
     @Bean
@@ -57,6 +63,14 @@ public class SecurityConfig {
         // 4. CORS 설정 (프론트엔드 연동 시 필수)
         http.cors(cors -> cors.configurationSource(corsConfigurationSource()));
 
+        // API는 인증 실패 시 리다이렉트(302) 대신 401을 반환
+        http.exceptionHandling(ex -> ex
+            .defaultAuthenticationEntryPointFor(
+                new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED),
+                new AntPathRequestMatcher("/api/**")
+            )
+        );
+
         // 2. 세션(Session)을 사용하지 않도록 설정 (STATELESS)
         http.sessionManagement(session ->
                 session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
@@ -67,6 +81,9 @@ public class SecurityConfig {
                 authz
                         // "/api/user/signup", "/api/user/login" URL은 인증 없이 무조건 허용
                         .requestMatchers("/api/user/signup", "/api/user/login", "/kakao/login", "/oauth2/**", "/login/**").permitAll()
+
+            // 로그아웃은 인증 필요
+            .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/user/logout").authenticated()
 
                 // 내 프로필 API는 인증 필요
                 .requestMatchers("/api/user/profile").authenticated()

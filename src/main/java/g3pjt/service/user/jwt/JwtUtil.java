@@ -76,4 +76,17 @@ public class JwtUtil {
         }
         return false;
     }
+
+    /**
+     * 토큰 만료 시각을 반환합니다.
+     * 로그아웃(블랙리스트) 처리 시 토큰 만료까지의 기간만 보관하기 위해 사용합니다.
+     */
+    public Date getExpiration(String token) {
+        return Jwts.parserBuilder()
+                .setSigningKey(key)
+                .build()
+                .parseClaimsJws(token)
+                .getBody()
+                .getExpiration();
+    }
 }

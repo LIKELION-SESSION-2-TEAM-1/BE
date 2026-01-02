@@ -45,6 +45,21 @@
   "message": "로그인 성공",
   "token": "<token>"
 }
+
+## POST /api/user/logout
+설명: 로그아웃(JWT 무효화)
+
+요청 헤더
+- `Authorization: Bearer <token>`
+
+동작
+- 전달된 access token을 서버 블랙리스트에 등록하여, 만료 시각까지 해당 토큰을 더 이상 인증에 사용하지 못하게 합니다.
+
+응답
+- 200 OK
+```json
+{ "message": "로그아웃 완료" }
+```
 ```
 
 ## GET /api/user/profile
