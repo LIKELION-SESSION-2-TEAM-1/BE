@@ -50,6 +50,7 @@ public class SecurityConfig {
         http.httpBasic(AbstractHttpConfigurer::disable);
         // OAuth2 로그인 설정 추가
         http.oauth2Login(oauth2 -> oauth2
+                .defaultSuccessUrl("/main", true)
                 .successHandler(oAuth2SuccessHandler) // 커스텀 핸들러 등록
                 .failureUrl("/login?error=true") // 로그인 실패 시 리디렉션
         );
@@ -65,7 +66,7 @@ public class SecurityConfig {
         http.authorizeHttpRequests(authz ->
                 authz
                         // "/api/user/signup", "/api/user/login" URL은 인증 없이 무조건 허용
-                        .requestMatchers("/api/user/signup", "/api/user/login").permitAll()
+                        .requestMatchers("/api/user/signup", "/api/user/login", "/kakao/login", "/oauth2/**", "/login/**").permitAll()
 
                 // 내 프로필 API는 인증 필요
                 .requestMatchers("/api/user/profile").authenticated()
