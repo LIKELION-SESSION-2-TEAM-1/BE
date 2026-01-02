@@ -33,6 +33,10 @@ public class ChatPollDocument {
 
     private Instant createdAt;
 
+    // 투표 종료(마감) 처리
+    private Instant closedAt;
+    private Long closedByUserId;
+
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
