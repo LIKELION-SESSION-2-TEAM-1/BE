@@ -149,6 +149,10 @@ public class ChatPollService {
         ChatPollDocument poll = chatPollRepository.findById(pollId)
                 .orElseThrow(() -> new IllegalArgumentException("투표를 찾을 수 없습니다."));
 
+        if (poll.getClosedAt() != null) {
+            throw new IllegalArgumentException("종료된 투표입니다.");
+        }
+
         ChatRoom room = chatService.getRoomOrThrow(poll.getChatRoomId());
         Long requesterId = chatService.getRequesterUserId(authentication);
         chatService.ensureMember(room, requesterId);
@@ -172,6 +176,35 @@ public class ChatPollService {
         chatPollVoteRepository.save(vote);
 
         return toResponse(poll, Optional.of(vote), authentication);
+    }
+
+    /**
+     * 투표 종료(마감)
+     * - 투표 생성자만 가능
+     * - 채팅방 멤버만 가능
+     */
+    public PollResponse closePoll(String pollId, Authentication authentication) {
+        if (!StringUtils.hasText(pollId)) throw new IllegalArgumentException("pollId가 비어있습니다.");
+
+        ChatPollDocument poll = chatPollRepository.findById(pollId)
+                .orElseThrow(() -> new IllegalArgumentException("투표를 찾을 수 없습니다."));
+
+        ChatRoom room = chatService.getRoomOrThrow(poll.getChatRoomId());
+        Long requesterId = chatService.getRequesterUserId(authentication);
+        chatService.ensureMember(room, requesterId);
+
+        if (poll.getCreatedByUserId() == null || !poll.getCreatedByUserId().equals(requesterId)) {
+            throw new IllegalArgumentException("투표 생성자만 종료할 수 있습니다.");
+        }
+
+        // idempotent
+        if (poll.getClosedAt() == null) {
+            poll.setClosedAt(Instant.now());
+            poll.setClosedByUserId(requesterId);
+            poll = chatPollRepository.save(poll);
+        }
+
+        return toResponse(poll, Optional.empty(), authentication);
     }
 
     private PollResponse toResponse(ChatPollDocument poll, Optional<ChatPollVoteDocument> myVote, Authentication authentication) {
@@ -200,6 +233,9 @@ public class ChatPollService {
                 .options(optionResults)
                 .myVotedOptionId(voteDoc.map(ChatPollVoteDocument::getOptionId).orElse(null))
                 .createdAt(poll.getCreatedAt())
+            .closed(poll.getClosedAt() != null)
+            .closedAt(poll.getClosedAt())
+            .closedByUserId(poll.getClosedByUserId())
                 .build();
     }
 }

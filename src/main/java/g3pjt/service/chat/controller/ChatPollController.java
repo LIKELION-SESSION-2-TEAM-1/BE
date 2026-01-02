@@ -57,4 +57,13 @@ public class ChatPollController {
     ) {
         return ResponseEntity.ok(chatPollService.vote(pollId, request, authentication));
     }
+
+    @Operation(summary = "투표 종료", description = "투표를 종료(마감)합니다. (투표 생성자만 가능)")
+    @PostMapping("/polls/{pollId}/close")
+    public ResponseEntity<PollResponse> closePoll(
+            @PathVariable String pollId,
+            org.springframework.security.core.Authentication authentication
+    ) {
+        return ResponseEntity.ok(chatPollService.closePoll(pollId, authentication));
+    }
 }

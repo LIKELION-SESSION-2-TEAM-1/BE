@@ -43,6 +43,13 @@
 오류
 - 이미 투표했으면 400("이미 투표하셨습니다.")
 
+### POST /api/chats/polls/{pollId}/close
+설명: 투표 종료(마감)
+
+규칙
+- 투표 생성자만 가능
+- 종료된 투표는 추가 투표 불가(400)
+
 ## Notice
 
 ### POST /api/chats/rooms/{roomId}/notices/polls

@@ -40,6 +40,15 @@ public class PollResponse {
     @Schema(description = "생성 시각")
     private Instant createdAt;
 
+    @Schema(description = "종료 여부")
+    private boolean closed;
+
+    @Schema(description = "종료 시각 (종료되지 않았으면 null)")
+    private Instant closedAt;
+
+    @Schema(description = "종료 처리한 User ID (종료되지 않았으면 null)")
+    private Long closedByUserId;
+
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
