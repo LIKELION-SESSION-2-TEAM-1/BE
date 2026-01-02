@@ -1,6 +1,7 @@
 package g3pjt.service.user;
 
 import g3pjt.service.user.jwt.JwtUtil;
+import g3pjt.service.user.jwt.TokenBlacklistService;
 import g3pjt.service.user.userdto.LoginRequestDto;
 import g3pjt.service.user.userdto.SignupRequestDto;
 import io.swagger.v3.oas.annotations.Operation;
@@ -14,6 +15,10 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.multipart.MultipartFile;
 
+import jakarta.servlet.http.HttpServletRequest;
+
+import java.util.Date;
+
 import java.util.Map;
 
 import g3pjt.service.storage.SupabaseStorageService;
@@ -26,6 +31,8 @@ public class UserController {
 
     private final UserService userService;
     private final SupabaseStorageService supabaseStorageService;
+    private final JwtUtil jwtUtil;
+    private final TokenBlacklistService tokenBlacklistService;
 
     /**
      * 회원가입 API
@@ -55,6 +62,40 @@ public class UserController {
         return ResponseEntity.ok()
                 .header(JwtUtil.AUTHORIZATION_HEADER, token)
                 .body(responseBody);
+    }
+
+    @Operation(summary = "로그아웃", description = "현재 JWT를 서버에서 무효화(블랙리스트)합니다.")
+    @PostMapping("/logout")
+    public ResponseEntity<Map<String, String>> logout(Authentication authentication, HttpServletRequest request) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", "인증이 필요합니다."));
+        }
+
+        String token = resolveToken(request);
+        if (token == null) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("message", "Authorization 헤더가 필요합니다."));
+        }
+
+        Date expiresAt = jwtUtil.getExpiration(token);
+        tokenBlacklistService.blacklist(token, expiresAt);
+
+        return ResponseEntity.ok(Map.of("message", "로그아웃 완료"));
+    }
+
+    private String resolveToken(HttpServletRequest request) {
+        String bearerToken = request.getHeader(JwtUtil.AUTHORIZATION_HEADER);
+        if (bearerToken == null || bearerToken.isBlank()) {
+            return null;
+        }
+
+        String token = bearerToken.trim();
+        for (int i = 0; i < 2; i++) {
+            if (token.startsWith(JwtUtil.BEARER_PREFIX)) {
+                token = token.substring(JwtUtil.BEARER_PREFIX.length()).trim();
+            }
+        }
+
+        return token.isEmpty() ? null : token;
     }
 
 

@@ -1,0 +1,59 @@
+{
+  "properties": [
+    {
+      "name": "jwt.secret.key",
+      "type": "java.lang.String",
+      "description": "JWT 서명용 시크릿 키"
+    },
+    {
+      "name": "gemini.api.key",
+      "type": "java.lang.String",
+      "description": "Google Gemini API Key"
+    },
+    {
+      "name": "docsbot.gemini.model",
+      "type": "java.lang.String",
+      "description": "Docs Bot에서 사용할 Gemini 모델명 (예: gemini-2.0-flash)"
+    },
+    {
+      "name": "python.executable.path",
+      "type": "java.lang.String",
+      "description": "크롤러/파이썬 실행 경로(기본 python)"
+    },
+    {
+      "name": "app.oauth2.redirect-uri-allowlist",
+      "type": "java.lang.String",
+      "description": "OAuth2 로그인 성공 후 redirect_uri 허용목록(콤마 구분)"
+    },
+    {
+      "name": "tour.api.service.key",
+      "type": "java.lang.String",
+      "description": "공공 관광 API 서비스 키"
+    },
+    {
+      "name": "tour.datalab.service.key",
+      "type": "java.lang.String",
+      "description": "관광데이터랩 API 서비스 키"
+    },
+    {
+      "name": "supabase.url",
+      "type": "java.lang.String",
+      "description": "Supabase 프로젝트 URL"
+    },
+    {
+      "name": "supabase.service-role-key",
+      "type": "java.lang.String",
+      "description": "Supabase Service Role Key"
+    },
+    {
+      "name": "supabase.storage.bucket",
+      "type": "java.lang.String",
+      "description": "Supabase Storage bucket 이름"
+    },
+    {
+      "name": "supabase.storage.public-bucket",
+      "type": "java.lang.Boolean",
+      "description": "public bucket이면 업로드 후 public URL 반환"
+    }
+  ]
+}
