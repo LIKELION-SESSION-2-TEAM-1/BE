@@ -1,301 +1,3 @@
-////package g3pjt.service.ai;
-////
-////import com.fasterxml.jackson.databind.JsonNode;
-////import com.fasterxml.jackson.databind.ObjectMapper;
-////import g3pjt.service.chat.domain.ChatDocument;
-////import g3pjt.service.chat.repository.ChatRepository;
-////import g3pjt.service.ai.domain.AiGeneratedPlan;
-////import g3pjt.service.ai.domain.UserTravelPlan;
-////import g3pjt.service.ai.repository.AiGeneratedPlanRepository;
-////import g3pjt.service.ai.repository.UserTravelPlanRepository;
-////import g3pjt.service.crawling.CrawlingService;
-////import g3pjt.service.crawling.StoreDto;
-////import lombok.RequiredArgsConstructor;
-////import lombok.extern.slf4j.Slf4j;
-////import org.springframework.beans.factory.annotation.Value;
-////import org.springframework.http.HttpEntity;
-////import org.springframework.http.HttpHeaders;
-////import org.springframework.http.MediaType;
-////import org.springframework.http.ResponseEntity;
-////import org.springframework.stereotype.Service;
-////import org.springframework.web.client.RestTemplate;
-////
-////import java.time.LocalDateTime;
-////import java.util.*;
-////import java.util.stream.Collectors;
-////
-////@Slf4j
-////@Service
-////@RequiredArgsConstructor
-////public class AiService {
-////
-////    private final ChatRepository chatRepository;
-////    private final ObjectMapper objectMapper;
-////    private final CrawlingService crawlingService;
-////    private final AiGeneratedPlanRepository aiGeneratedPlanRepository;
-////    private final UserTravelPlanRepository userTravelPlanRepository;
-////
-////    @Value("${gemini.api.key}")
-////    private String geminiApiKey;
-////
-////    // Gemini API URL Template
-////    private static final String GEMINI_API_URL_TEMPLATE = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=%s";
-////
-////    public AiDto extractKeywords(Long chatRoomId) {
-////        // 1. Fetch chat history
-////        List<ChatDocument> chatHistory = chatRepository.findByChatRoomId(chatRoomId);
-////
-////        if (chatHistory.isEmpty()) {
-////            return new AiDto(Collections.emptyList(), chatRoomId);
-////        }
-////
-////        // 2. Format chat history into a single string
-////        String conversation = chatHistory.stream()
-////                .map(chat -> chat.getSenderName() + ": " + chat.getMessage())
-////                .collect(Collectors.joining("\n"));
-////
-////        // 3. Call Gemini API
-////        List<String> keywords = callGeminiToExtractKeywords(conversation);
-////
-////        return new AiDto(keywords, chatRoomId);
-////    }
-////
-////    private List<String> callGeminiToExtractKeywords(String conversation) {
-////        RestTemplate restTemplate = new RestTemplate();
-////        String url = String.format(GEMINI_API_URL_TEMPLATE, geminiApiKey);
-////
-////        HttpHeaders headers = new HttpHeaders();
-////        headers.setContentType(MediaType.APPLICATION_JSON);
-////
-////        // System Instruction + User Prompt
-////        String systemInstruction = "You are an expert AI geography assistant. Your goal is to extract only valid, real-world geographical locations (cities, countries, provinces, or famous tourist landmarks) from the user's conversation. " +
-////                "Strict Rules: " +
-////                "1. Verify Existence: Only return locations that can be found on a real map. " +
-////                "2. Exclude Noise: Do NOT include slang, verbs, common nouns (e.g., 'gang', 'job', 'food'), typos, or ambiguous words. " +
-////                "3. Context: If a word is not a clear destination, ignore it. " +
-////                "4. Output Format: Return ONLY a comma-separated list of keywords. If no valid locations are found, return the string 'NONE'. Do not add any other text.";
-////
-////        String userPrompt = "Chat History:\n" + conversation;
-////
-////        // Build Payload
-////        Map<String, Object> requestBody = new HashMap<>();
-////        requestBody.put("systemInstruction", Map.of("parts", List.of(Map.of("text", systemInstruction))));
-////        requestBody.put("contents", List.of(Map.of("role", "user", "parts", List.of(Map.of("text", userPrompt)))));
-////        requestBody.put("generationConfig", Map.of("temperature", 0.1)); // Low temp for extraction
-////
-////        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
-////
-////        try {
-////            ResponseEntity<String> response = restTemplate.postForEntity(url, entity, String.class);
-////            String content = extractGeminiResponse(response.getBody());
-////
-////            return parseKeywordList(content);
-////        } catch (Exception e) {
-////            log.error("Error calling Gemini API for keywords", e);
-////        }
-////
-////        return Collections.emptyList();
-////    }
-////
-////    private List<String> parseKeywordList(String content) {
-////        if (content == null) {
-////            return Collections.emptyList();
-////        }
-////
-////        String normalized = content
-////                .replace("```", " ")
-////                .replace("\n", ",")
-////                .replace("\r", ",")
-////                .replace("•", ",")
-////                .trim();
-////
-////        if (normalized.isEmpty()) {
-////            return Collections.emptyList();
-////        }
-////
-////        String upper = normalized.toUpperCase(Locale.ROOT);
-////        if (upper.equals("NONE") || upper.contains("NONE")) {
-////            return Collections.emptyList();
-////        }
-////        if (normalized.contains("없음") || normalized.contains("없습니다") || normalized.contains("없어요")) {
-////            return Collections.emptyList();
-////        }
-////
-////        return Arrays.stream(normalized.split(","))
-////                .map(String::trim)
-////                .filter(s -> !s.isEmpty())
-////                .distinct()
-////                .collect(Collectors.toList());
-////    }
-////
-////    public AiPlanDto generateTravelPlan(Long chatRoomId, List<String> keywords) {
-////        if (keywords == null || keywords.isEmpty()) {
-////            return new AiPlanDto(null, "No Plan", "No destinations provided.", Collections.emptyList());
-////        }
-////
-////        // 1. Crawl data for all keywords at once (Batch Processing)
-////        List<StoreDto> crawledPlaces = new ArrayList<>();
-////
-////        // Remove empty keywords
-////        List<String> validKeywords = keywords.stream()
-////                .map(String::trim)
-////                .filter(k -> !k.isEmpty())
-////                .collect(Collectors.toList());
-////
-////        try {
-////            if (!validKeywords.isEmpty()) {
-////                crawledPlaces = crawlingService.searchStoresBatch(validKeywords);
-////            }
-////        } catch (Exception e) {
-////            log.error("Failed to crawl for keywords", e);
-////        }
-////
-////        // 2. Construct prompt with crawled data
-////        StringBuilder placesInfo = new StringBuilder();
-////        if (crawledPlaces.isEmpty()) {
-////            // Fallback if crawling returned nothing
-////             for (String keyword : keywords) {
-////                placesInfo.append(String.format("- 이름: %s (정보 없음)\n", keyword));
-////            }
-////        } else {
-////            for (StoreDto place : crawledPlaces) {
-////                placesInfo.append(String.format("- 이름: %s, 카테고리: %s, 주소: %s, 평점: %s\n",
-////                        place.getStoreName(),
-////                        place.getCategory() != null ? place.getCategory() : "미정",
-////                        place.getAddress() != null ? place.getAddress() : "미정",
-////                        place.getRating() != null ? place.getRating() : "0.0"));
-////            }
-////        }
-////
-////        String prompt = "다음 여행지 정보를 바탕으로 최적의 여행 계획을 짜줘:\n" + placesInfo.toString() +
-////                "\n이 장소들을 효율적인 동선으로 배치해줘. " +
-////                "\n " +
-////                "결과는 반드시 다음 JSON 형식으로만 반환해 (Markdown code block 없이, 순수 JSON 텍스트만):\n" +
-////                "{ \"title\": \"...\", \"description\": \"...\", \"schedule\": [ { \"day\": 1, \"places\": [ { \"name\": \"...\", \"category\": \"...\", \"address\": \"...\", \"distanceToNext\": \"...\" } ] } ] } " +
-////                "\nJSON은 유효해야 하며, 한국어로 작성해줘.";
-////
-////        AiPlanDto plan = callGeminiToGeneratePlan(prompt);
-////
-////        // Save Generated Plan
-////        if (plan != null) {
-////            AiGeneratedPlan generatedPlan = AiGeneratedPlan.builder()
-////                    .chatRoomId(chatRoomId)
-////                    .keywords(validKeywords)
-////                    .plan(plan)
-////                    .createdAt(LocalDateTime.now())
-////                    .build();
-////            aiGeneratedPlanRepository.save(generatedPlan);
-////        }
-////
-////        return plan;
-////    }
-////
-////    private AiPlanDto callGeminiToGeneratePlan(String prompt) {
-////        RestTemplate restTemplate = new RestTemplate();
-////        String url = String.format(GEMINI_API_URL_TEMPLATE, geminiApiKey);
-////
-////        HttpHeaders headers = new HttpHeaders();
-////        headers.setContentType(MediaType.APPLICATION_JSON);
-////
-////        Map<String, Object> requestBody = new HashMap<>();
-////        requestBody.put("systemInstruction", Map.of("parts", List.of(Map.of("text", "You are a travel expert. Generate a structured travel plan in JSON format. return JSON WITHOUT markdown formatting."))));
-////        requestBody.put("contents", List.of(Map.of("role", "user", "parts", List.of(Map.of("text", prompt)))));
-////        requestBody.put("generationConfig", Map.of("temperature", 0.7));
-////
-////        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
-////
-////        try {
-////            ResponseEntity<String> response = restTemplate.postForEntity(url, entity, String.class);
-////            String content = extractGeminiResponse(response.getBody());
-////
-////            if (content != null && !content.trim().isEmpty()) {
-////                // Clean up markdown code blocks if Gemini adds them despite instructions
-////                content = content.replace("```json", "").replace("```", "").trim();
-////                return objectMapper.readValue(content, AiPlanDto.class);
-////            }
-////        } catch (Exception e) {
-////            log.error("Error calling Gemini API for plan generation", e);
-////        }
-////
-////        return new AiPlanDto(null, "Error", "Failed to generate plan.", Collections.emptyList());
-////    }
-////
-////    private String extractGeminiResponse(String responseBody) {
-////        if (responseBody == null || responseBody.isBlank()) {
-////            return null;
-////        }
-////
-////        try {
-////            JsonNode root = objectMapper.readTree(responseBody);
-////            // Gemini path: candidates[0].content.parts[0].text
-////            JsonNode textNode = root.path("candidates").path(0).path("content").path("parts").path(0).path("text");
-////            if (textNode.isMissingNode() || textNode.isNull()) {
-////                return null;
-////            }
-////            return textNode.asText();
-////        } catch (Exception e) {
-////            log.error("Failed to parse Gemini response", e);
-////            return null;
-////        }
-////    }
-////
-////    public UserTravelPlan confirmPlan(Long userId, AiPlanDto finalPlan) {
-////        UserTravelPlan userPlan = UserTravelPlan.builder()
-////                .userId(userId)
-////                .chatRoomId(finalPlan != null ? finalPlan.getChatRoomId() : null)
-////                .plan(finalPlan)
-////                .savedAt(LocalDateTime.now())
-////                .build();
-////        return userTravelPlanRepository.save(userPlan);
-////    }
-////
-////    public UserTravelPlan updateTravelPlan(String planId, Long userId, AiPlanDto updatedPlan) {
-////        UserTravelPlan existingPlan = userTravelPlanRepository.findById(planId)
-////                .orElseThrow(() -> new IllegalArgumentException("Travel plan not found with id: " + planId));
-////
-////        // Verify ownership
-////        if (!existingPlan.getUserId().equals(userId)) {
-////            throw new IllegalArgumentException("Unauthorized: You do not own this travel plan.");
-////        }
-////
-////        // Keep chatRoomId consistent even if FE omits it in update payload
-////        if (updatedPlan != null) {
-////            if (updatedPlan.getChatRoomId() == null && existingPlan.getChatRoomId() != null) {
-////                updatedPlan.setChatRoomId(existingPlan.getChatRoomId());
-////            }
-////            if (updatedPlan.getChatRoomId() != null) {
-////                existingPlan.setChatRoomId(updatedPlan.getChatRoomId());
-////            }
-////        }
-////
-////        existingPlan.setPlan(updatedPlan);
-////        // updated time logic could be added here if needed
-////        return userTravelPlanRepository.save(existingPlan);
-////    }
-////
-////    public List<UserTravelPlan> getUserPlans(Long userId) {
-////        return userTravelPlanRepository.findByUserId(userId);
-////    }
-////
-////    public List<UserTravelPlan> getUserPlans(Long userId, Long chatRoomId) {
-////        if (chatRoomId == null) {
-////            return getUserPlans(userId);
-////        }
-////        return userTravelPlanRepository.findByUserIdAndChatRoomId(userId, chatRoomId);
-////    }
-////
-////    public void deletePlan(String planId, Long userId) {
-////        UserTravelPlan existingPlan = userTravelPlanRepository.findById(planId)
-////                .orElseThrow(() -> new IllegalArgumentException("Travel plan not found with id: " + planId));
-////
-////        if (!existingPlan.getUserId().equals(userId)) {
-////            throw new IllegalArgumentException("Unauthorized: You do not own this travel plan.");
-////        }
-////
-////        userTravelPlanRepository.delete(existingPlan);
-////    }
-////}
-//
 //package g3pjt.service.ai;
 //
 //import com.fasterxml.jackson.databind.JsonNode;
@@ -706,21 +408,25 @@
 //        userTravelPlanRepository.delete(existingPlan);
 //    }
 //}
+//
+//
 
 package g3pjt.service.ai;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import g3pjt.service.chat.domain.ChatDocument;
-import g3pjt.service.chat.domain.ChatRoom; // ChatRoom 도메인
-import g3pjt.service.chat.repository.ChatRepository;
-import g3pjt.service.chat.repository.ChatRoomRepository; // ChatRoom 레포지토리
 import g3pjt.service.ai.domain.AiGeneratedPlan;
 import g3pjt.service.ai.domain.UserTravelPlan;
 import g3pjt.service.ai.repository.AiGeneratedPlanRepository;
 import g3pjt.service.ai.repository.UserTravelPlanRepository;
+import g3pjt.service.chat.domain.ChatDocument;
+import g3pjt.service.chat.domain.ChatRoom;
+import g3pjt.service.chat.repository.ChatRepository;
+import g3pjt.service.chat.repository.ChatRoomRepository;
 import g3pjt.service.crawling.CrawlingService;
 import g3pjt.service.crawling.StoreDto;
+import g3pjt.service.user.User;
+import g3pjt.service.user.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -735,6 +441,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -742,8 +449,10 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class AiService {
 
-    private final ChatRepository chatRepository;
-    private final ChatRoomRepository chatRoomRepository; // [추가] 채팅방 정보 조회용
+    private final ChatRepository chatRepository;              // Mongo: chats
+    private final ChatRoomRepository chatRoomRepository;      // Mongo: chat_rooms
+    private final UserRepository userRepository;              // Postgres: users
+
     private final ObjectMapper objectMapper;
     private final CrawlingService crawlingService;
     private final AiGeneratedPlanRepository aiGeneratedPlanRepository;
@@ -752,10 +461,14 @@ public class AiService {
     @Value("${gemini.api.key}")
     private String geminiApiKey;
 
-    private static final String GEMINI_API_URL_TEMPLATE = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=%s";
+    private static final String GEMINI_API_URL_TEMPLATE =
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=%s";
+
+    private static final int MIN_PLACES_PER_DAY = 4;
+    private static final int MAX_RETRY = 1;
 
     /**
-     * 1. 대화 내역에서 여행 키워드(장소) 추출
+     * 1) 키워드 추출
      */
     public AiDto extractKeywords(Long chatRoomId) {
         List<ChatDocument> chatHistory = chatRepository.findByChatRoomId(chatRoomId);
@@ -773,115 +486,6 @@ public class AiService {
         return new AiDto(keywords, chatRoomId);
     }
 
-    /**
-     * 2. 키워드 및 채팅방 설정(날짜, 스타일)을 기반으로 여행 계획 생성
-     */
-    public AiPlanDto generateTravelPlan(Long chatRoomId, List<String> keywords) {
-        if (keywords == null || keywords.isEmpty()) {
-            return new AiPlanDto(null, "No Plan", "No destinations provided.", Collections.emptyList());
-        }
-
-        // [Step 1] 채팅방 정보(날짜, 스타일) 조회 (스크린샷 기반 수정: findByRoomId 사용)
-        ChatRoom chatRoom = chatRoomRepository.findByRoomId(chatRoomId);
-
-        String tripScheduleInfo = "일정 미정";
-        String tripStyleInfo = "스타일 정보 없음";
-        long totalDays = 1;
-
-        if (chatRoom != null) {
-            // 날짜 계산 (ChatRoom 엔티티에 getStartDate, getEndDate 존재 가정)
-            LocalDate startDate = chatRoom.getStartDate();
-            LocalDate endDate = chatRoom.getEndDate();
-
-            if (startDate != null && endDate != null) {
-                totalDays = ChronoUnit.DAYS.between(startDate, endDate) + 1;
-                tripScheduleInfo = String.format("%s ~ %s (%d박 %d일)", startDate, endDate, totalDays - 1, totalDays);
-            } else if (startDate != null) {
-                tripScheduleInfo = String.format("%s (당일치기)", startDate);
-            }
-
-            // 스타일 정보 병합
-            if (chatRoom.getStyles() != null && !chatRoom.getStyles().isEmpty()) {
-                tripStyleInfo = String.join(", ", chatRoom.getStyles());
-            }
-        } else {
-            log.warn("ChatRoom not found for id: {}", chatRoomId);
-        }
-
-        // [Step 2] 키워드 기반 장소 크롤링
-        List<StoreDto> crawledPlaces = new ArrayList<>();
-        List<String> validKeywords = keywords.stream()
-                .map(String::trim)
-                .filter(k -> !k.isEmpty())
-                .collect(Collectors.toList());
-
-        try {
-            if (!validKeywords.isEmpty()) {
-                crawledPlaces = crawlingService.searchStoresBatch(validKeywords);
-            }
-        } catch (Exception e) {
-            log.error("Failed to crawl for keywords", e);
-        }
-
-        // [Step 3] 프롬프트 데이터 구성 (크롤링 결과)
-        StringBuilder placesInfo = new StringBuilder();
-        if (crawledPlaces.isEmpty()) {
-            for (String keyword : keywords) {
-                placesInfo.append(String.format("- 이름: %s (정보 없음)\n", keyword));
-            }
-        } else {
-            for (StoreDto place : crawledPlaces) {
-                placesInfo.append(String.format("- 이름: %s, 카테고리: %s, 주소: %s, 평점: %s\n",
-                        place.getStoreName(),
-                        place.getCategory() != null ? place.getCategory() : "미정",
-                        place.getAddress() != null ? place.getAddress() : "미정",
-                        place.getRating() != null ? place.getRating() : "0.0"));
-            }
-        }
-
-        // [Step 4] 프롬프트 생성 (날짜, 스타일 정보 주입)
-        String prompt = "당신은 전문 여행 플래너입니다. 아래 정보를 바탕으로 완벽한 여행 계획을 세워주세요.\n\n" +
-                "[여행 기본 정보]\n" +
-                "- 여행 기간: " + tripScheduleInfo + "\n" +
-                "- 여행 스타일: " + tripStyleInfo + "\n\n" +
-                "[후보 장소 리스트 (AI 검색 결과)]\n" +
-                placesInfo.toString() + "\n" +
-                "[요청 사항]\n" +
-                "1. 위 여행 기간(" + totalDays + "일)에 맞춰서 일자별(Day 1, Day 2...) 상세 일정을 계획해줘.\n" +
-                "2. 여행 스타일(" + tripStyleInfo + ")을 고려하여 장소를 배치해줘. (예: 힐링이면 여유롭게, 액티비티면 동적으로)\n" +
-                "3. 후보 장소들을 효율적인 동선으로 배치하고, 만약 일수가 부족하면 후보 장소 외에 주변 추천 장소를 적절히 추가해도 좋아.\n" +
-                "4. 결과는 반드시 다음 JSON 형식으로만 반환해 (Markdown code block 없이, 순수 JSON 텍스트만):\n" +
-                "{ \n" +
-                "  \"title\": \"여행 제목\", \n" +
-                "  \"description\": \"전반적인 여행 컨셉 요약\", \n" +
-                "  \"schedule\": [ \n" +
-                "    { \n" +
-                "      \"day\": 1, \n" +
-                "      \"places\": [ \n" +
-                "        { \"name\": \"장소명\", \"category\": \"카테고리\", \"address\": \"주소\", \"distanceToNext\": \"다음장소까지 거리\" } \n" +
-                "      ] \n" +
-                "    } \n" +
-                "  ] \n" +
-                "} \n" +
-                "JSON은 유효해야 하며, 한국어로 작성해줘.";
-
-        // [Step 5] Gemini 호출 및 저장
-        AiPlanDto plan = callGeminiToGeneratePlan(prompt);
-
-        if (plan != null) {
-            AiGeneratedPlan generatedPlan = AiGeneratedPlan.builder()
-                    .chatRoomId(chatRoomId)
-                    .keywords(validKeywords)
-                    .plan(plan)
-                    .createdAt(LocalDateTime.now())
-                    .build();
-            aiGeneratedPlanRepository.save(generatedPlan);
-        }
-
-        return plan;
-    }
-
-    // --- Gemini API 호출 로직 (키워드 추출) ---
     private List<String> callGeminiToExtractKeywords(String conversation) {
         RestTemplate restTemplate = new RestTemplate();
         String url = String.format(GEMINI_API_URL_TEMPLATE, geminiApiKey);
@@ -889,8 +493,15 @@ public class AiService {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
 
-        String systemInstruction = "You are an expert AI geography assistant. Extract valid real-world locations from the conversation. " +
-                "Return ONLY a comma-separated list. If none, return 'NONE'.";
+        String systemInstruction =
+                "You are an expert AI travel assistant. Your goal is to extract keywords from the conversation to search for travel destinations and restaurants. " +
+                        "Strict Rules: " +
+                        "1. Extract two types of keywords: " +
+                        "   - Geographical locations (cities, landmarks). " +
+                        "   - Specific food names or dish categories (e.g., 'Black Pork', 'Sushi', 'Dessert'). " +
+                        "2. Verification: Only return words that are valid for a search query on a map or restaurant review site. " +
+                        "3. Exclude Noise: Do NOT include verbs, slang, or general words like 'trip', 'fun', 'tomorrow'. " +
+                        "4. Output Format: Return ONLY a comma-separated list of keywords. If nothing valid is found, return 'NONE'.";
 
         String userPrompt = "Chat History:\n" + conversation;
 
@@ -903,47 +514,29 @@ public class AiService {
 
         try {
             ResponseEntity<String> response = restTemplate.postForEntity(url, entity, String.class);
-            return parseKeywordList(extractGeminiResponse(response.getBody()));
+            String content = extractGeminiResponse(response.getBody());
+            return parseKeywordList(content);
         } catch (Exception e) {
             log.error("Error calling Gemini API for keywords", e);
+            return Collections.emptyList();
         }
-        return Collections.emptyList();
     }
 
-    // --- Gemini API 호출 로직 (플랜 생성) ---
-    private AiPlanDto callGeminiToGeneratePlan(String prompt) {
-        RestTemplate restTemplate = new RestTemplate();
-        String url = String.format(GEMINI_API_URL_TEMPLATE, geminiApiKey);
-
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-
-        Map<String, Object> requestBody = new HashMap<>();
-        requestBody.put("systemInstruction", Map.of("parts", List.of(Map.of("text", "You are a travel expert. Return JSON WITHOUT markdown formatting."))));
-        requestBody.put("contents", List.of(Map.of("role", "user", "parts", List.of(Map.of("text", prompt)))));
-        requestBody.put("generationConfig", Map.of("temperature", 0.7));
-
-        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
-
-        try {
-            ResponseEntity<String> response = restTemplate.postForEntity(url, entity, String.class);
-            String content = extractGeminiResponse(response.getBody());
-
-            if (content != null && !content.trim().isEmpty()) {
-                content = content.replace("```json", "").replace("```", "").trim();
-                return objectMapper.readValue(content, AiPlanDto.class);
-            }
-        } catch (Exception e) {
-            log.error("Error calling Gemini API for plan generation", e);
-        }
-        return new AiPlanDto(null, "Error", "Failed to generate plan.", Collections.emptyList());
-    }
-
-    // --- 유틸리티 메서드 ---
     private List<String> parseKeywordList(String content) {
         if (content == null) return Collections.emptyList();
-        String normalized = content.replace("```", " ").replace("\n", ",").replace("\r", ",").replace("•", ",").trim();
-        if (normalized.isEmpty() || normalized.toUpperCase().contains("NONE")) return Collections.emptyList();
+
+        String normalized = content
+                .replace("```", " ")
+                .replace("\n", ",")
+                .replace("\r", ",")
+                .replace("•", ",")
+                .trim();
+
+        if (normalized.isEmpty()) return Collections.emptyList();
+
+        String upper = normalized.toUpperCase(Locale.ROOT);
+        if (upper.equals("NONE") || upper.contains("NONE")) return Collections.emptyList();
+        if (normalized.contains("없음") || normalized.contains("없습니다")) return Collections.emptyList();
 
         return Arrays.stream(normalized.split(","))
                 .map(String::trim)
@@ -952,19 +545,451 @@ public class AiService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * 2) 여행 계획 생성
+     * - 핵심 수정:
+     *   (1) chat_rooms의 startDate/endDate로 allowedDates(정확한 날짜 배열) 계산
+     *   (2) travelStyle + styles를 프롬프트에 강제 반영
+     *   (3) 결과 schedule 일수/날짜/하루 최소 4개 검증 후 위반 시 1회 재생성
+     */
+    public AiPlanDto generateTravelPlan(Long chatRoomId, List<String> keywords) {
+        if (keywords == null || keywords.isEmpty()) {
+            return new AiPlanDto(chatRoomId, "No Plan", "No destinations provided.", Collections.emptyList());
+        }
+
+        // 키워드 정리
+        List<String> validKeywords = keywords.stream()
+                .map(String::trim)
+                .filter(k -> !k.isEmpty())
+                .distinct()
+                .collect(Collectors.toList());
+
+        // === Step 1) ChatRoom 조회 ===
+        ChatRoom chatRoom = chatRoomRepository.findByRoomId(chatRoomId);
+
+        if (chatRoom == null) {
+            log.warn("[AI] ChatRoom not found by roomId={}. duration/style will fallback.", chatRoomId);
+        } else {
+            log.info("[AI] ChatRoom found. roomId={}, startDate={}, endDate={}, travelStyle={}, stylesSize={}",
+                    chatRoom.getRoomId(),
+                    chatRoom.getStartDate(),
+                    chatRoom.getEndDate(),
+                    chatRoom.getTravelStyle(),
+                    (chatRoom.getStyles() == null ? 0 : chatRoom.getStyles().size())
+            );
+        }
+
+        // === Step 2) 참가자(Postgres) 조회 ===
+        List<User> participants = new ArrayList<>();
+        if (chatRoom != null && chatRoom.getMemberIds() != null && !chatRoom.getMemberIds().isEmpty()) {
+            participants = userRepository.findByIdIn(chatRoom.getMemberIds());
+        }
+        if (participants.isEmpty()) {
+            log.warn("[AI] No participants found for chatRoomId={}. Proceed with defaults.", chatRoomId);
+        }
+
+        // === Step 3) 그룹 프로필(제약 포함) ===
+        String groupProfileContext = aggregateGroupProfile(participants);
+
+        // === Step 4) 기간/스타일 컨텍스트 계산 (강제용 데이터) ===
+        TripContext trip = buildTripContext(chatRoom);
+
+        // === Step 5) 크롤링 (키워드 기반) ===
+        List<StoreDto> crawledPlaces = new ArrayList<>();
+        try {
+            if (!validKeywords.isEmpty()) {
+                crawledPlaces = crawlingService.searchStoresBatch(validKeywords);
+            }
+        } catch (Exception e) {
+            log.error("[AI] Failed to crawl for keywords={}", validKeywords, e);
+        }
+
+        // 후보 리스트 문자열화
+        String placesInfo = buildPlacesInfo(validKeywords, crawledPlaces);
+
+        // === Step 6) 프롬프트 생성 ===
+        String prompt = buildPlanPrompt(groupProfileContext, trip, placesInfo);
+
+        // === Step 7) 1차 생성 ===
+        AiPlanDto plan = callGeminiToGeneratePlan(prompt);
+
+        // chatRoomId 보정 (FE/후속 저장 로직에서 사용)
+        if (plan != null) {
+            plan.setChatRoomId(chatRoomId);
+        }
+
+        // === Step 8) 검증 + 필요시 재시도(1회) ===
+        plan = retryOnceIfInvalid(plan, prompt, trip, chatRoomId);
+
+        // === Step 9) 결과 저장 ===
+        if (plan != null) {
+            try {
+                AiGeneratedPlan generatedPlan = AiGeneratedPlan.builder()
+                        .chatRoomId(chatRoomId)
+                        .keywords(validKeywords)
+                        .plan(plan)
+                        .createdAt(LocalDateTime.now())
+                        .build();
+                aiGeneratedPlanRepository.save(generatedPlan);
+            } catch (Exception e) {
+                log.error("[AI] Failed to save AiGeneratedPlan. chatRoomId={}", chatRoomId, e);
+            }
+        }
+
+        return plan != null
+                ? plan
+                : new AiPlanDto(chatRoomId, "Error", "Failed to generate plan.", Collections.emptyList());
+    }
+
+    private String buildPlacesInfo(List<String> validKeywords, List<StoreDto> crawledPlaces) {
+        StringBuilder sb = new StringBuilder();
+        if (crawledPlaces == null || crawledPlaces.isEmpty()) {
+            for (String keyword : validKeywords) {
+                sb.append(String.format("- 키워드: %s (검색 결과 없음)\n", keyword));
+            }
+            return sb.toString();
+        }
+
+        for (StoreDto place : crawledPlaces) {
+            sb.append(String.format(
+                    "- 장소명: %s | 카테고리: %s | 주소: %s | ⭐평점: %s\n",
+                    safe(place.getStoreName(), "이름없음"),
+                    safe(place.getCategory(), "기타"),
+                    safe(place.getAddress(), "위치 정보 없음"),
+                    safe(place.getRating(), "0.0")
+            ));
+        }
+        return sb.toString();
+    }
+
+    private String buildPlanPrompt(String groupProfileContext, TripContext trip, String placesInfo) {
+        // 스타일 규칙(매핑)은 필요 시 더 늘리시면 됩니다.
+        String styleRules =
+                "- travelStyle/styles에 '먹방'이 포함되면: 식당/카페 비중을 전체 places의 60% 이상으로 구성\n" +
+                        "- 'activity' 또는 '액티비티/체험'이 포함되면: 하루에 체험/액티비티 장소 최소 1개 포함\n" +
+                        "- 'shopping' 또는 '쇼핑'이 포함되면: 쇼핑 가능한 장소(시장/쇼핑몰/편집샵/거리)를 하루 최소 1개 포함\n" +
+                        "- '힐링'이 포함되면: 이동 거리 최소화 + 카페/산책/뷰포인트 비중 증가\n";
+
+        // allowedDates 강제 문자열
+        String allowedDatesStr = trip.allowedDates.isEmpty()
+                ? "[]"
+                : trip.allowedDates.stream().map(LocalDate::toString).collect(Collectors.joining(", ", "[", "]"));
+
+        // 핵심: schedule 길이 강제 + 날짜 강제
+        return groupProfileContext +
+                "\n\n[여행 일정 정보]\n" +
+                "- 시작일: " + (trip.startDate == null ? "미정" : trip.startDate) + "\n" +
+                "- 종료일: " + (trip.endDate == null ? "미정" : trip.endDate) + "\n" +
+                "- 기간표기: " + trip.durationInfo + "\n" +
+                "- 총 일수(dayCount): " + trip.dayCount + "\n" +
+                "- 총 박수(nightCount): " + trip.nightCount + "\n" +
+                "- allowedDates(사용 가능한 날짜 목록): " + allowedDatesStr + "\n" +
+                "- travelStyle/styles: " + trip.styleInfo + "\n" +
+
+                "\n[검색된 후보 장소 리스트 (평점 포함)]\n" +
+                placesInfo +
+
+                "\n[필수 수행 미션]\n" +
+                "1) 위 후보 리스트와 그룹 프로필을 분석해서, allowedDates에 맞춘 최적의 여행 일정을 만들어.\n" +
+                "2) 동선을 짧게(거리 최소화) 구성하고, 평점 높은 곳을 우선 배치해.\n" +
+
+                "\n[★중요: 장소 선정 및 필터링 규칙★]\n" +
+                "1. [CRITICAL_RESTRICTIONS]에 포함된 음식/재료를 파는 식당은 즉시 제외\n" +
+                "2. 평점 높은 곳 우선\n" +
+                "3. 동선 최적화(이동 거리 최소)\n" +
+                "4. 대화에서 나온 음식 키워드 관련 식당이 있으면 우선 포함\n" +
+                "5. 스타일 반영(아래 규칙을 반드시 반영):\n" + styleRules +
+                "6. 하루 places 개수는 최소 " + MIN_PLACES_PER_DAY + "개 이상\n" +
+                "7. address는 구글지도 검색 가능한 전체 도로명 주소로 기입\n" +
+
+                "\n[★기간 강제 조건(매우 중요)★]\n" +
+                "- schedule 배열 길이는 반드시 dayCount(" + trip.dayCount + ")와 정확히 일치해야 함\n" +
+                "- schedule[i].day는 1부터 dayCount까지 순서대로 1씩 증가해야 함\n" +
+                "- schedule[i].date는 allowedDates 목록 중에서만 사용해야 하며, 가능한 한 i번째 날짜를 사용해야 함\n" +
+                "- allowedDates가 비어있으면(날짜 미정) dayCount는 1로 하고 date는 \"\"(빈 문자열)로 두어라\n" +
+
+                "\n[출력 형식]\n" +
+                "결과는 반드시 아래 JSON 형식(순수 JSON 텍스트, Markdown 금지)으로만 반환:\n" +
+                "{\n" +
+                "  \"title\": \"여행 제목\",\n" +
+                "  \"description\": \"전반적인 컨셉 설명\",\n" +
+                "  \"schedule\": [\n" +
+                "    {\n" +
+                "      \"day\": 1,\n" +
+                "      \"date\": \"YYYY-MM-DD\",\n" +
+                "      \"places\": [\n" +
+                "        { \"name\": \"장소명\", \"category\": \"업종\", \"address\": \"주소\", \"distanceToNext\": \"다음 장소까지 거리\" }\n" +
+                "      ]\n" +
+                "    }\n" +
+                "  ]\n" +
+                "}\n" +
+                "JSON은 유효해야 하며 한국어로 작성해.";
+    }
+
+    private TripContext buildTripContext(ChatRoom chatRoom) {
+        TripContext ctx = new TripContext();
+        ctx.startDate = (chatRoom == null ? null : chatRoom.getStartDate());
+        ctx.endDate = (chatRoom == null ? null : chatRoom.getEndDate());
+        ctx.styleInfo = buildStyleInfo(chatRoom);
+
+        if (ctx.startDate != null && ctx.endDate != null) {
+            long days = ChronoUnit.DAYS.between(ctx.startDate, ctx.endDate) + 1; // inclusive
+            if (days < 1) days = 1;
+
+            ctx.dayCount = (int) days;
+            ctx.nightCount = Math.max(0, ctx.dayCount - 1);
+            ctx.allowedDates = enumerateDates(ctx.startDate, ctx.endDate);
+
+            ctx.durationInfo = String.format("%s ~ %s (%d박 %d일)",
+                    ctx.startDate, ctx.endDate, ctx.nightCount, ctx.dayCount);
+        } else if (ctx.startDate != null) {
+            ctx.dayCount = 1;
+            ctx.nightCount = 0;
+            ctx.allowedDates = List.of(ctx.startDate);
+            ctx.durationInfo = ctx.startDate + " (당일)";
+        } else {
+            // 날짜가 아예 없으면: dayCount=1로 강제(모델이 멋대로 늘리는 것을 방지)
+            ctx.dayCount = 1;
+            ctx.nightCount = 0;
+            ctx.allowedDates = Collections.emptyList();
+            ctx.durationInfo = "날짜 미정(당일치기 처리)";
+        }
+
+        return ctx;
+    }
+
+    private String buildStyleInfo(ChatRoom chatRoom) {
+        if (chatRoom == null) return "없음";
+
+        LinkedHashSet<String> styles = new LinkedHashSet<>();
+
+        if (!isBlank(chatRoom.getTravelStyle())) {
+            styles.add(chatRoom.getTravelStyle().trim());
+        }
+
+        if (chatRoom.getStyles() != null) {
+            for (String s : chatRoom.getStyles()) {
+                if (!isBlank(s)) styles.add(s.trim());
+            }
+        }
+
+        if (styles.isEmpty()) return "없음";
+        return String.join(", ", styles);
+    }
+
+    private List<LocalDate> enumerateDates(LocalDate start, LocalDate end) {
+        List<LocalDate> dates = new ArrayList<>();
+        LocalDate cur = start;
+        while (!cur.isAfter(end)) {
+            dates.add(cur);
+            cur = cur.plusDays(1);
+        }
+        return dates;
+    }
+
+    private AiPlanDto retryOnceIfInvalid(AiPlanDto plan, String originalPrompt, TripContext trip, Long chatRoomId) {
+        if (plan == null) return null;
+
+        boolean ok = validatePlan(plan, trip);
+        if (ok) return plan;
+
+        for (int attempt = 0; attempt < MAX_RETRY; attempt++) {
+            log.warn("[AI] Plan validation failed. Retrying once. chatRoomId={}, dayCount={}, allowedDates={}",
+                    chatRoomId, trip.dayCount, trip.allowedDates);
+
+            String repairPrompt =
+                    originalPrompt +
+                            "\n\n[검증 실패로 인한 재생성 요청]\n" +
+                            "- 너의 이전 응답이 '기간 강제 조건' 또는 '하루 places 최소 개수' 조건을 위반했다.\n" +
+                            "- 반드시 조건을 모두 만족하는 새 JSON만 반환해.\n";
+
+            AiPlanDto regenerated = callGeminiToGeneratePlan(repairPrompt);
+            if (regenerated != null) {
+                regenerated.setChatRoomId(chatRoomId);
+                if (validatePlan(regenerated, trip)) {
+                    return regenerated;
+                }
+                plan = regenerated; // 그래도 최신으로 교체
+            }
+        }
+
+        return plan;
+    }
+
+    /**
+     * DTO 구조가 바뀌어도 컴파일 깨지지 않도록, objectMapper로 JsonNode로 변환 후 검증합니다.
+     */
+    private boolean validatePlan(AiPlanDto plan, TripContext trip) {
+        try {
+            JsonNode root = objectMapper.valueToTree(plan);
+            JsonNode schedule = root.path("schedule");
+
+            // dayCount 강제
+            if (!schedule.isArray()) return false;
+            if (schedule.size() != trip.dayCount) return false;
+
+            // 날짜 강제(allowedDates 있을 때만)
+            Set<String> allowed = trip.allowedDates.stream()
+                    .map(LocalDate::toString)
+                    .collect(Collectors.toSet());
+
+            for (int i = 0; i < schedule.size(); i++) {
+                JsonNode dayNode = schedule.get(i);
+
+                // day 값이 순서대로인지(가능하면)
+                int expectedDay = i + 1;
+                if (dayNode.has("day") && dayNode.get("day").isInt()) {
+                    if (dayNode.get("day").asInt() != expectedDay) return false;
+                }
+
+                // date 값 검증(allowedDates 비어있지 않을 때)
+                if (!allowed.isEmpty()) {
+                    String date = dayNode.path("date").asText("");
+                    if (!allowed.contains(date)) return false;
+                }
+
+                // places 최소 개수
+                JsonNode places = dayNode.path("places");
+                if (!places.isArray() || places.size() < MIN_PLACES_PER_DAY) return false;
+            }
+
+            return true;
+        } catch (Exception e) {
+            log.error("[AI] validatePlan error", e);
+            return false;
+        }
+    }
+
+    private AiPlanDto callGeminiToGeneratePlan(String prompt) {
+        RestTemplate restTemplate = new RestTemplate();
+        String url = String.format(GEMINI_API_URL_TEMPLATE, geminiApiKey);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+        Map<String, Object> requestBody = new HashMap<>();
+        requestBody.put(
+                "systemInstruction",
+                Map.of("parts", List.of(Map.of("text",
+                        "You are a travel expert. Generate a structured travel plan in valid JSON format. " +
+                                "Return JSON ONLY without markdown and without extra commentary.")))
+        );
+        requestBody.put("contents", List.of(Map.of("role", "user", "parts", List.of(Map.of("text", prompt)))));
+
+        // Google Search Grounding
+        Map<String, Object> googleSearchTool = Map.of("google_search", Map.of());
+        requestBody.put("tools", List.of(googleSearchTool));
+
+        requestBody.put("generationConfig", Map.of("temperature", 0.7));
+
+        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
+
+        try {
+            ResponseEntity<String> response = restTemplate.postForEntity(url, entity, String.class);
+            String content = extractGeminiResponse(response.getBody());
+
+            log.info("[AI] Gemini raw content: {}", content);
+
+            if (content == null || content.trim().isEmpty()) {
+                return new AiPlanDto(null, "Error", "Empty response from AI", Collections.emptyList());
+            }
+
+            String cleaned = content.replace("```json", "").replace("```", "").trim();
+
+            // 혹시 JSON 앞뒤로 설명이 붙는 경우 대비: 첫 '{' ~ 마지막 '}'만 잘라 파싱
+            int start = cleaned.indexOf('{');
+            int end = cleaned.lastIndexOf('}');
+            if (start >= 0 && end > start) {
+                cleaned = cleaned.substring(start, end + 1).trim();
+            }
+
+            if (cleaned.isEmpty()) {
+                log.warn("[AI] Gemini returned empty JSON after cleaning. raw={}", content);
+                return new AiPlanDto(null, "Error", "Empty JSON from AI", Collections.emptyList());
+            }
+
+            return objectMapper.readValue(cleaned, AiPlanDto.class);
+
+        } catch (org.springframework.web.client.RestClientResponseException e) {
+            log.error("[AI] Gemini API Error: Status={}, Body={}", e.getRawStatusCode(), e.getResponseBodyAsString());
+        } catch (Exception e) {
+            log.error("[AI] Error calling Gemini API for plan generation", e);
+        }
+
+        return new AiPlanDto(null, "Error", "Failed to generate plan.", Collections.emptyList());
+    }
+
     private String extractGeminiResponse(String responseBody) {
         if (responseBody == null || responseBody.isBlank()) return null;
+
         try {
             JsonNode root = objectMapper.readTree(responseBody);
             JsonNode textNode = root.path("candidates").path(0).path("content").path("parts").path(0).path("text");
-            return (textNode.isMissingNode() || textNode.isNull()) ? null : textNode.asText();
+            if (textNode.isMissingNode() || textNode.isNull()) return null;
+            return textNode.asText();
         } catch (Exception e) {
-            log.error("Failed to parse Gemini response", e);
+            log.error("[AI] Failed to parse Gemini response", e);
             return null;
         }
     }
 
-    // --- DB 저장/조회 메서드 ---
+    /**
+     * 다수 참여자의 정보를 집계하여 그룹 프로필 문자열 생성
+     */
+    private String aggregateGroupProfile(List<User> participants) {
+        if (participants == null || participants.isEmpty()) {
+            return "=== [여행 그룹 프로필] ===\n참여자 정보 없음 (일반적인 기준으로 추천 요망)\n====================\n";
+        }
+
+        int totalMembers = participants.size();
+
+        Map<String, Long> paceCounts = participants.stream()
+                .map(u -> u.getTravelPace() != null ? u.getTravelPace() : "보통")
+                .collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
+        String majorityPace = getMajorityKey(paceCounts, "보통");
+
+        Map<String, Long> rhythmCounts = participants.stream()
+                .map(u -> u.getDailyRhythm() != null ? u.getDailyRhythm() : "유연")
+                .collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
+        String majorityRhythm = getMajorityKey(rhythmCounts, "유연");
+
+        Map<String, Long> foodPrefCounts = participants.stream()
+                .filter(u -> u.getFoodPreferences() != null)
+                .flatMap(u -> u.getFoodPreferences().stream())
+                .collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
+
+        String foodPreferencesStr = foodPrefCounts.entrySet().stream()
+                .sorted(Map.Entry.<String, Long>comparingByValue().reversed())
+                .map(e -> e.getKey() + "(" + e.getValue() + "명)")
+                .collect(Collectors.joining(", "));
+        if (foodPreferencesStr.isEmpty()) foodPreferencesStr = "특별한 선호 없음";
+
+        Set<String> allRestrictions = participants.stream()
+                .filter(u -> u.getFoodRestrictions() != null)
+                .flatMap(u -> u.getFoodRestrictions().stream())
+                .collect(Collectors.toSet());
+
+        String restrictionStr = allRestrictions.isEmpty() ? "없음" : String.join(", ", allRestrictions);
+
+        return String.format(
+                "=== [여행 그룹 프로필] ===\n" +
+                        "- 총 인원: %d명\n" +
+                        "- [Majority Pace] 여행 페이스: %s\n" +
+                        "- [Majority Rhythm] 하루 리듬: %s\n" +
+                        "- [Food Preferences] 선호 음식: %s\n" +
+                        "- [CRITICAL_RESTRICTIONS] 절대 금지 음식: %s (이 재료/음식이 포함된 식당은 절대 추천하지 말 것)\n" +
+                        "========================\n",
+                totalMembers, majorityPace, majorityRhythm, foodPreferencesStr, restrictionStr
+        );
+    }
+
+    private String getMajorityKey(Map<String, Long> counts, String defaultValue) {
+        return counts.entrySet().stream()
+                .max(Map.Entry.comparingByValue())
+                .map(Map.Entry::getKey)
+                .orElse(defaultValue);
+    }
+
     public UserTravelPlan confirmPlan(Long userId, AiPlanDto finalPlan) {
         UserTravelPlan userPlan = UserTravelPlan.builder()
                 .userId(userId)
@@ -977,13 +1002,21 @@ public class AiService {
 
     public UserTravelPlan updateTravelPlan(String planId, Long userId, AiPlanDto updatedPlan) {
         UserTravelPlan existingPlan = userTravelPlanRepository.findById(planId)
-                .orElseThrow(() -> new IllegalArgumentException("Travel plan not found: " + planId));
-        if (!existingPlan.getUserId().equals(userId)) throw new IllegalArgumentException("Unauthorized");
+                .orElseThrow(() -> new IllegalArgumentException("Travel plan not found with id: " + planId));
+
+        if (!existingPlan.getUserId().equals(userId)) {
+            throw new IllegalArgumentException("Unauthorized: You do not own this travel plan.");
+        }
 
         if (updatedPlan != null) {
-            if (updatedPlan.getChatRoomId() == null) updatedPlan.setChatRoomId(existingPlan.getChatRoomId());
-            existingPlan.setChatRoomId(updatedPlan.getChatRoomId());
+            if (updatedPlan.getChatRoomId() == null && existingPlan.getChatRoomId() != null) {
+                updatedPlan.setChatRoomId(existingPlan.getChatRoomId());
+            }
+            if (updatedPlan.getChatRoomId() != null) {
+                existingPlan.setChatRoomId(updatedPlan.getChatRoomId());
+            }
         }
+
         existingPlan.setPlan(updatedPlan);
         return userTravelPlanRepository.save(existingPlan);
     }
@@ -993,13 +1026,40 @@ public class AiService {
     }
 
     public List<UserTravelPlan> getUserPlans(Long userId, Long chatRoomId) {
-        return chatRoomId == null ? getUserPlans(userId) : userTravelPlanRepository.findByUserIdAndChatRoomId(userId, chatRoomId);
+        if (chatRoomId == null) {
+            return getUserPlans(userId);
+        }
+        return userTravelPlanRepository.findByUserIdAndChatRoomId(userId, chatRoomId);
     }
 
     public void deletePlan(String planId, Long userId) {
         UserTravelPlan existingPlan = userTravelPlanRepository.findById(planId)
-                .orElseThrow(() -> new IllegalArgumentException("Plan not found: " + planId));
-        if (!existingPlan.getUserId().equals(userId)) throw new IllegalArgumentException("Unauthorized");
+                .orElseThrow(() -> new IllegalArgumentException("Travel plan not found with id: " + planId));
+
+        if (!existingPlan.getUserId().equals(userId)) {
+            throw new IllegalArgumentException("Unauthorized: You do not own this travel plan.");
+        }
+
         userTravelPlanRepository.delete(existingPlan);
+    }
+
+    // ======== Utils / Inner ========
+
+    private boolean isBlank(String s) {
+        return s == null || s.trim().isEmpty();
+    }
+
+    private String safe(String v, String fallback) {
+        return isBlank(v) ? fallback : v;
+    }
+
+    private static class TripContext {
+        LocalDate startDate;
+        LocalDate endDate;
+        int dayCount;
+        int nightCount;
+        List<LocalDate> allowedDates = Collections.emptyList();
+        String durationInfo = "당일치기";
+        String styleInfo = "없음";
     }
 }
