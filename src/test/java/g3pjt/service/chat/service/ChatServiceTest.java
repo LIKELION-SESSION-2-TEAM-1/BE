@@ -4,6 +4,8 @@ import g3pjt.service.chat.domain.ChatRoom;
 import g3pjt.service.chat.dto.ChatRoomRequest;
 import g3pjt.service.chat.repository.ChatRepository;
 import g3pjt.service.chat.repository.ChatRoomRepository;
+import g3pjt.service.chat.repository.ChatRoomReadStateRepository;
+import g3pjt.service.storage.SupabaseStorageService;
 import g3pjt.service.user.User;
 import g3pjt.service.user.UserService;
 import org.junit.jupiter.api.Test;
@@ -40,7 +42,10 @@ class ChatServiceTest {
         ArgumentCaptor<ChatRoom> roomCaptor = ArgumentCaptor.forClass(ChatRoom.class);
         when(chatRoomRepository.save(roomCaptor.capture())).thenAnswer(inv -> inv.getArgument(0));
 
-        ChatService service = new ChatService(chatRoomRepository, chatRepository, userService);
+        SupabaseStorageService supabaseStorageService = mock(SupabaseStorageService.class);
+        ChatRoomReadStateRepository chatRoomReadStateRepository = mock(ChatRoomReadStateRepository.class);
+
+        ChatService service = new ChatService(chatRoomRepository, chatRepository, chatRoomReadStateRepository, userService, supabaseStorageService);
         ChatRoom saved = service.createRoom(request, authentication);
 
         assertThat(saved.getName()).isEqualTo("부산 여행");
