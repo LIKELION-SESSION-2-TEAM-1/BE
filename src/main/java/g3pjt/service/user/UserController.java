@@ -102,7 +102,6 @@ public class UserController {
         if (authentication == null || !authentication.isAuthenticated()) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
-
         String username = authentication.getName();
         User user = userService.getUserProfile(username);
         return ResponseEntity.ok(new g3pjt.service.user.userdto.UserProfileResponse(user));

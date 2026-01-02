@@ -63,11 +63,13 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
             // 기본값 (구글 등): 기존 방식대로 email 사용
             username = (String) attributes.get("email");
         }
+        System.out.println(username);
 
         // 2. DB 확인 (기존 변수명과 로직 그대로 유지)
         final String finalUsername = username;
         User user = userRepository.findByUsername(finalUsername)
                 .orElseGet(() -> {
+                    System.out.println("신규 유저입니다. 저장을 시작합니다.");
                     // 기존 User 생성자가 (String, String) 구조인지 확인하세요.
                     User newUser = new User(finalUsername, UUID.randomUUID().toString());
                     return userRepository.save(newUser);
@@ -96,7 +98,8 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
 
         clearRedirectUriCookie(response);
 
-        String targetUrl = redirectUri + "#token=" + cleanToken;
+        String targetUrl = redirectUri + "?token=" + cleanToken;
+        System.out.println("최종 리다이렉트 주소: " + targetUrl);
         response.sendRedirect(targetUrl);
     }
 
