@@ -1,6 +1,10 @@
 package g3pjt.service.user;
 
 // ... (다른 import)
+import g3pjt.service.favorite.FavoritePlaceRepository;
+import g3pjt.service.search.RecentSearchRepository;
+import g3pjt.service.user.email.EmailVerificationService;
+import g3pjt.service.user.email.EmailVerificationTokenRepository;
 import g3pjt.service.user.jwt.JwtUtil; // ⭐️ JwtUtil 임포트
 import g3pjt.service.user.userdto.LoginRequestDto;
 import g3pjt.service.user.userdto.SignupRequestDto;
@@ -10,6 +14,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
+import java.time.Instant;
 import java.util.Optional;
 
 @Service
@@ -17,6 +22,10 @@ import java.util.Optional;
 public class UserService {
 
     private final UserRepository userRepository;
+    private final FavoritePlaceRepository favoritePlaceRepository;
+    private final RecentSearchRepository recentSearchRepository;
+    private final EmailVerificationTokenRepository emailVerificationTokenRepository;
+    private final EmailVerificationService emailVerificationService;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
 
@@ -38,7 +47,18 @@ public class UserService {
         // 3. 유저 생성 및 저장
         User user = new User(username, encodedPassword);
         user.setNickname(username); // 초기 닉네임은 아이디와 동일하게 설정
+
+        // username이 이메일이 아닌 경우엔 인증 플로우가 불가능하므로 기본적으로 인증 완료 처리
+        if (user.getUsername() == null || !user.getUsername().contains("@")) {
+            user.markEmailVerified(Instant.now());
+        }
+
         userRepository.save(user);
+
+        // 이메일 계정이면 가입 직후 인증메일 발송(인증 전에 로그인 차단이므로 데드락 방지)
+        if (user.getUsername() != null && user.getUsername().contains("@") && !user.isEmailVerified()) {
+            emailVerificationService.sendVerificationEmailByUsername(user.getUsername());
+        }
     }
 
     /**
@@ -56,6 +76,11 @@ public class UserService {
         // 2. 비밀번호 대조
         if (!passwordEncoder.matches(password, user.getPassword())) {
             throw new IllegalArgumentException("아이디 또는 비밀번호가 일치하지 않습니다.");
+        }
+
+        // 이메일 계정에 대해서만 인증 전 로그인(토큰 발급) 차단
+        if (user.getUsername() != null && user.getUsername().contains("@") && !user.isEmailVerified()) {
+            throw new EmailVerificationRequiredException("이메일 인증이 필요합니다.");
         }
 
         // 3. 로그인 성공 및 JWT 발급
@@ -125,6 +150,22 @@ public class UserService {
     public void deleteAccount(String username) {
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+
+        Long userId = user.getId();
+
+        // FK 제약으로 인해 users 삭제 전에 종속 데이터부터 제거
+        emailVerificationTokenRepository.deleteAllByUserId(userId);
+        recentSearchRepository.deleteAllByUserId(userId);
+        favoritePlaceRepository.deleteAllByUserId(userId);
+
+        // ElementCollection 테이블 정리(스키마가 RESTRICT인 경우 대비)
+        if (user.getFoodPreferences() != null) {
+            user.getFoodPreferences().clear();
+        }
+        if (user.getFoodRestrictions() != null) {
+            user.getFoodRestrictions().clear();
+        }
+
         userRepository.delete(user);
     }
 

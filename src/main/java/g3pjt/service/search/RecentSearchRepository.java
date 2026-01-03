@@ -11,4 +11,6 @@ public interface RecentSearchRepository extends JpaRepository<RecentSearch, Long
     List<RecentSearch> findAllByUserIdOrderByCreatedAtAsc(Long userId);
 
     Optional<RecentSearch> findByUserIdAndKeyword(Long userId, String keyword);
+
+    void deleteAllByUserId(Long userId);
 }

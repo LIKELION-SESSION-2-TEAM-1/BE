@@ -8,4 +8,6 @@ public interface FavoritePlaceRepository extends JpaRepository<FavoritePlace, Lo
     List<FavoritePlace> findAllByUserIdOrderByIdDesc(Long userId);
 
     boolean existsByUserIdAndStoreNameAndAddress(Long userId, String storeName, String address);
+
+    void deleteAllByUserId(Long userId);
 }
