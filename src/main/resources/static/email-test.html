@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>이메일 인증 테스트</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .section {
+            margin-bottom: 30px;
+            border: 1px solid #ccc;
+            padding: 20px;
+            border-radius: 8px;
+        }
+
+        h2 {
+            margin-top: 0;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        input[type="text"],
+        input[type="email"] {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+            box-sizing: border-box;
+        }
+
+        button {
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+
+        #logs {
+            background: #f0f0f0;
+            padding: 10px;
+            border-radius: 4px;
+            height: 300px;
+            overflow-y: scroll;
+            border: 1px solid #ddd;
+            font-family: monospace;
+        }
+
+        .success {
+            color: green;
+        }
+
+        .error {
+            color: red;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>이메일 인증 테스트 페이지</h1>
+    <p>백엔드 서버가 켜져 있어야 합니다. (localhost:8080)</p>
+
+    <div class="section">
+        <h2>1. 로그인 (토큰 발급)</h2>
+        <p>테스트용 API를 사용해 즉시 로그인(가입)하고 토큰을 받습니다.</p>
+        <label for="email">이메일 주소:</label>
+        <input type="email" id="email" placeholder="test@example.com" value="supertokplan@gmail.com">
+        <button onclick="getToken()">로그인 & 토큰 발급</button>
+        <p><strong>현재 상태:</strong> <span id="authStatus" style="color:red;">로그아웃됨</span></p>
+    </div>
+
+    <div class="section">
+        <h2>2. 인증 메일 발송</h2>
+        <p>위에서 로그인한 사용자로 인증 메일을 보냅니다.</p>
+        <button id="btnSend" onclick="sendEmail()" disabled>인증 메일 발송하기</button>
+    </div>
+
+    <div class="section">
+        <h2>3. 인증 확인 (Token 입력)</h2>
+        <p>이메일로 받은 Token 값을 입력하세요.</p>
+        <label for="token">Token:</label>
+        <input type="text" id="token" placeholder="메일로 받은 Token 붙여넣기">
+
+        <div style="margin-top: 10px;">
+            <button id="btnConfirmPost" onclick="confirmPost()" disabled>POST로 인증 (앱/웹 폼)</button>
+            <button id="btnConfirmGet" onclick="confirmGet()" disabled style="background-color: #28a745;">GET으로 인증 (링크
+                클릭)</button>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>로그 (Logs)</h2>
+        <div id="logs"></div>
+        <button onclick="document.getElementById('logs').innerHTML=''"
+            style="margin-top:5px; background-color:#6c757d;">로그 지우기</button>
+    </div>
+
+    <script>
+        let accessToken = null;
+        const BASE_URL = 'http://localhost:8080';
+
+        function log(message, type = 'normal') {
+            const logs = document.getElementById('logs');
+            const div = document.createElement('div');
+            div.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            if (type === 'success') div.style.color = 'green';
+            if (type === 'error') div.style.color = 'red';
+            logs.prepend(div);
+        }
+
+        async function getToken() {
+            const email = document.getElementById('email').value;
+            if (!email) return alert('이메일을 입력하세요.');
+
+            try {
+                // TestAuthController 이용
+                const res = await fetch(`${BASE_URL}/api/test/auth/token?email=${encodeURIComponent(email)}`);
+                if (!res.ok) throw new Error(await res.text());
+
+                const data = await res.json();
+                accessToken = data.accessToken;
+
+                document.getElementById('authStatus').textContent = `로그인됨 (${data.nickname})`;
+                document.getElementById('authStatus').style.color = 'green';
+
+                // 버튼 활성화
+                document.getElementById('btnSend').disabled = false;
+                document.getElementById('btnConfirmPost').disabled = false;
+                document.getElementById('btnConfirmGet').disabled = false;
+
+                log(`토큰 발급 성공: ${accessToken.substring(0, 15)}...`, 'success');
+            } catch (err) {
+                log(`토큰 발급 실패: ${err.message}`, 'error');
+            }
+        }
+
+        async function sendEmail() {
+            if (!accessToken) return alert('먼저 로그인을 해주세요.');
+
+            log('인증 메일 발송 요청 중...');
+            try {
+                const res = await fetch(`${BASE_URL}/api/user/email/verification/send`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`
+                    }
+                });
+
+                if (res.status === 204 || res.ok) {
+                    log('메일 발송 성공! 이메일함을 확인하세요.', 'success');
+                } else {
+                    throw new Error(await res.text());
+                }
+            } catch (err) {
+                log(`메일 발송 실패: ${err.message}`, 'error');
+            }
+        }
+
+        async function confirmPost() {
+            const token = document.getElementById('token').value.trim();
+            if (!token) return alert('Token을 입력하세요.');
+
+            log(`POST 인증 요청 중... (Token: ${token})`);
+            try {
+                const res = await fetch(`${BASE_URL}/api/user/email/verification/confirm`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ token: token })
+                });
+
+                const data = await res.json();
+                if (res.ok) {
+                    log(`인증 성공: ${data.message}`, 'success');
+                } else {
+                    log(`인증 실패: ${data.message}`, 'error');
+                }
+            } catch (err) {
+                log(`요청 오류: ${err.message}`, 'error');
+            }
+        }
+
+        async function confirmGet() {
+            const token = document.getElementById('token').value.trim();
+            if (!token) return alert('Token을 입력하세요.');
+
+            log(`GET 인증 요청 중... (Token: ${token})`);
+            try {
+                const res = await fetch(`${BASE_URL}/api/user/email/verification/confirm?token=${encodeURIComponent(token)}`);
+
+                const data = await res.json();
+                if (res.ok) {
+                    log(`인증 성공: ${data.message}`, 'success');
+                } else {
+                    log(`인증 실패: ${data.message}`, 'error');
+                }
+            } catch (err) {
+                log(`요청 오류: ${err.message}`, 'error');
+            }
+        }
+    </script>
+</body>
+
+</html>
