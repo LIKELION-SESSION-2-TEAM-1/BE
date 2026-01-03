@@ -235,6 +235,15 @@ public class ChatService {
         return chatRepository.findByChatRoomIdOrderByTimestampAsc(chatRoomId);
     }
 
+    public ChatDocument getLastChatMessage(Long roomId, Authentication authentication) {
+        ChatRoom room = getRoomOrThrow(roomId);
+
+        Long requesterId = getRequesterUserId(authentication);
+        ensureMember(room, requesterId);
+
+        return chatRepository.findFirstByChatRoomIdOrderByTimestampDesc(roomId).orElse(null);
+    }
+
     public String uploadChatImage(Long roomId, MultipartFile file, Authentication authentication) {
         ChatRoom room = getRoomOrThrow(roomId);
 
