@@ -107,3 +107,12 @@
 동작
 - 본인을 memberIds에서 제거
 - 방장이 나가면 첫 멤버로 ownerUserId 승계(없으면 null)
+
+## GET /api/chats/rooms/{roomId}/messages/last
+설명: 특정 채팅방의 가장 최근 메시지 1건 조회(방 멤버만)
+
+응답
+- 200 OK + ChatDocument
+- 204 No Content: 메시지가 아직 없는 방
+- 403 Forbidden: 방 멤버가 아님
+- 404 Not Found: 방이 없음

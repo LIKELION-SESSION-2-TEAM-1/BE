@@ -256,6 +256,33 @@ public class ChatController {
         }
     }
 
+    @Operation(summary = "채팅방 마지막 메시지 1건 조회", description = "특정 채팅방의 가장 최근 메시지 1건을 조회합니다. (방 멤버만 가능)")
+    @GetMapping("/rooms/{roomId}/messages/last")
+    public ResponseEntity<ChatDocument> getLastMessage(
+            @PathVariable Long roomId,
+            org.springframework.security.core.Authentication authentication
+    ) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return ResponseEntity.status(401).build();
+        }
+
+        try {
+            ChatDocument last = chatService.getLastChatMessage(roomId, authentication);
+            if (last == null) {
+                return ResponseEntity.noContent().build();
+            }
+            return ResponseEntity.ok(last);
+        } catch (IllegalArgumentException e) {
+            if ("채팅방을 찾을 수 없습니다.".equals(e.getMessage())) {
+                return ResponseEntity.notFound().build();
+            }
+            if ("채팅방 멤버만 수행할 수 있습니다.".equals(e.getMessage())) {
+                return ResponseEntity.status(403).build();
+            }
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
     @Operation(summary = "채팅 내역 조회", description = "특정 채팅방의 지난 대화 내용을 조회합니다.")
     @GetMapping("/{chatRoomId}")
     public List<ChatDocument> getChatHistory(@PathVariable Long chatRoomId) {
