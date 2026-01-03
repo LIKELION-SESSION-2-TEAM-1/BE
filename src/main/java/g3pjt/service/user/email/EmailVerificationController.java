@@ -33,6 +33,17 @@ public class EmailVerificationController {
         }
     }
 
+    @Operation(summary = "인증 메일 재발송(비로그인)", description = "username(이메일)을 받아 이메일 인증 메일을 재발송합니다. (개발 편의용: 스팸 방지를 위한 레이트리밋/캡차가 필요할 수 있습니다.)")
+    @PostMapping("/resend")
+    public ResponseEntity<java.util.Map<String, String>> resend(@RequestBody EmailVerificationResendRequest request) {
+        try {
+            emailVerificationService.sendVerificationEmailByUsername(request != null ? request.getUsername() : null);
+            return ResponseEntity.noContent().build();
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
+    }
+
     @Operation(summary = "이메일 인증 확정", description = "메일로 받은 token을 서버에 전달해 이메일 인증을 완료합니다.")
     @PostMapping("/confirm")
     public ResponseEntity<Map<String, String>> confirm(@RequestBody EmailVerificationConfirmRequest request) {

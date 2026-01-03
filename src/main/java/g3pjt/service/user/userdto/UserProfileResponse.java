@@ -11,6 +11,7 @@ public class UserProfileResponse {
     private String username;
     private String nickname;
     private String profileImageUrl;
+    private boolean emailVerified;
     private String birthDate;
     private String travelPace;
     private String dailyRhythm;
@@ -23,6 +24,7 @@ public class UserProfileResponse {
         this.username = user.getUsername();
         this.nickname = user.getNickname();
         this.profileImageUrl = user.getProfileImageUrl();
+        this.emailVerified = user.isEmailVerified();
         this.birthDate = user.getBirthDate();
         this.travelPace = user.getTravelPace();
         this.dailyRhythm = user.getDailyRhythm();

@@ -37,8 +37,16 @@ public class EmailVerificationService {
             throw new IllegalArgumentException("인증이 필요합니다.");
         }
 
-        String username = authentication.getName();
-        User user = userRepository.findByUsername(username)
+        sendVerificationEmailByUsername(authentication.getName());
+    }
+
+    @Transactional
+    public void sendVerificationEmailByUsername(String username) {
+        if (username == null || username.trim().isEmpty()) {
+            throw new IllegalArgumentException("username이 비어있습니다.");
+        }
+
+        User user = userRepository.findByUsername(username.trim())
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
 
         if (user.isEmailVerified()) {

@@ -207,4 +207,9 @@ public class UserController {
     public ResponseEntity<String> handleException(IllegalArgumentException e) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
     }
+
+    @ExceptionHandler(EmailVerificationRequiredException.class)
+    public ResponseEntity<Map<String, String>> handleEmailVerificationRequired(EmailVerificationRequiredException e) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("message", e.getMessage()));
+    }
 }
