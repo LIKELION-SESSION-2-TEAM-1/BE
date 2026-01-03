@@ -46,6 +46,36 @@
   "token": "<token>"
 }
 
+## 이메일 인증(자체 회원가입 유저)
+
+### POST /api/user/email/verification/send
+설명: 로그인한 유저에게 이메일 인증 메일을 발송합니다.
+
+요청 헤더
+- `Authorization: Bearer <token>`
+
+응답
+- 204 No Content: 발송 요청 성공
+- 400 Bad Request: 이미 인증됨 / username이 이메일이 아님 등
+
+### POST /api/user/email/verification/confirm
+설명: 메일로 받은 token으로 이메일 인증을 완료합니다.
+
+요청 바디
+```json
+{ "token": "..." }
+```
+
+응답
+- 200 OK
+```json
+{ "message": "이메일 인증 완료" }
+```
+- 400 Bad Request: 유효하지 않음/만료/이미 사용됨
+
+### GET /api/user/email/verification/confirm?token=...
+설명: 메일 링크용(쿼리 token으로 인증 완료)
+
 ## POST /api/user/logout
 설명: 로그아웃(JWT 무효화)
 

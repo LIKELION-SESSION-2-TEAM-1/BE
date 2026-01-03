@@ -5,6 +5,8 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.time.Instant;
+
 @Entity
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -30,6 +32,12 @@ public class User {
     @Column
     private String birthDate; // YYYY-MM-DD
 
+    @Column(name = "email_verified")
+    private Boolean emailVerified = false;
+
+    @Column(name = "email_verified_at")
+    private Instant emailVerifiedAt;
+
     // 여행 스타일
     @Column
     private String travelPace; // 느림, 보통, 빠름
@@ -53,6 +61,15 @@ public class User {
 
     public boolean isRecentSearchEnabled() {
         return recentSearchEnabled == null ? true : recentSearchEnabled;
+    }
+
+    public boolean isEmailVerified() {
+        return emailVerified != null && emailVerified;
+    }
+
+    public void markEmailVerified(Instant now) {
+        this.emailVerified = true;
+        this.emailVerifiedAt = now;
     }
 
     public User(String username, String password) {
