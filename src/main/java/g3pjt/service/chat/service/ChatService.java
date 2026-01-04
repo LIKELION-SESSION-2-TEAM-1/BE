@@ -32,6 +32,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
+import java.util.function.Function;
 import java.util.UUID;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -186,6 +188,20 @@ public class ChatService {
         List<ChatRoom> rooms = chatRoomRepository.findByMemberIdsContains(userId);
         Instant now = Instant.now();
 
+        List<Long> roomIds = rooms.stream()
+            .map(ChatRoom::getRoomId)
+            .filter(Objects::nonNull)
+            .toList();
+
+        Map<Long, ChatRepository.ChatRoomLastMessageAggregate> lastMessageByRoomId = chatRepository
+            .findLastMessagesByRoomIds(roomIds)
+            .stream()
+            .collect(Collectors.toMap(
+                ChatRepository.ChatRoomLastMessageAggregate::getChatRoomId,
+                Function.identity(),
+                (a, b) -> a
+            ));
+
         return rooms.stream()
             .map(room -> {
                 ChatRoomReadState readState = chatRoomReadStateRepository.findByRoomIdAndUserId(room.getRoomId(), userId)
@@ -198,6 +214,15 @@ public class ChatService {
                     userId
                 );
 
+                ChatRepository.ChatRoomLastMessageAggregate last = lastMessageByRoomId.get(room.getRoomId());
+                Instant lastMessageTime = last != null ? last.getLastMessageTime() : null;
+                String lastMessagePreview = last != null ? last.getLastMessagePreview() : null;
+
+                // 메시지가 없는 방은 roomId를 epoch milli로 간주해 정렬 기준으로 사용
+                if (lastMessageTime == null && room.getRoomId() != null) {
+                    lastMessageTime = Instant.ofEpochMilli(room.getRoomId());
+                }
+
                 return ChatRoomSummaryResponse.builder()
                     .roomId(room.getRoomId())
                     .name(room.getName())
@@ -208,7 +233,17 @@ public class ChatService {
                     .createdAt(room.getCreatedAt())
                     .ownerUserId(resolveOwnerUserId(room))
                     .unreadCount(unreadCount)
+                    .lastMessageTime(lastMessageTime)
+                    .lastMessagePreview(lastMessagePreview)
                     .build();
+            })
+            .sorted((a, b) -> {
+                Instant ta = a.getLastMessageTime();
+                Instant tb = b.getLastMessageTime();
+                if (ta == null && tb == null) return 0;
+                if (ta == null) return 1;
+                if (tb == null) return -1;
+                return tb.compareTo(ta);
             })
             .toList();
         }

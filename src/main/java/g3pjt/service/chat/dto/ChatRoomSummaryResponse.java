@@ -5,6 +5,7 @@ import lombok.Getter;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.Instant;
 
 @Getter
 @Builder
@@ -22,4 +23,8 @@ public class ChatRoomSummaryResponse {
     private Long ownerUserId;
 
     private long unreadCount;
+
+    private Instant lastMessageTime;
+
+    private String lastMessagePreview;
 }
