@@ -16,10 +16,13 @@ import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.time.Instant;
 import java.util.Optional;
+import java.util.regex.Pattern;
 
 @Service
 @RequiredArgsConstructor // final 필드에 대한 생성자를 자동으로 만들어줍니다.
 public class UserService {
+
+    private static final Pattern EMAIL_PATTERN = Pattern.compile("^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$");
 
     private final UserRepository userRepository;
     private final FavoritePlaceRepository favoritePlaceRepository;
@@ -33,8 +36,13 @@ public class UserService {
      * 회원가입
      */
     public void signup(SignupRequestDto requestDto) {
-        String username = requestDto.getUsername();
-        String password = requestDto.getPassword();
+        String username = normalizeRequired(requestDto.getUsername(), "username이 비어있습니다.");
+        String password = normalizeRequired(requestDto.getPassword(), "password가 비어있습니다.");
+
+        // 자체 회원가입은 이메일 기반으로만 허용 (메일 인증 플로우 일관성 유지)
+        if (!isValidEmail(username)) {
+            throw new IllegalArgumentException("이메일 형식의 username만 회원가입할 수 있습니다.");
+        }
 
         // 1. 아이디 중복 확인
         if (userRepository.findByUsername(username).isPresent()) {
@@ -48,15 +56,10 @@ public class UserService {
         User user = new User(username, encodedPassword);
         user.setNickname(username); // 초기 닉네임은 아이디와 동일하게 설정
 
-        // username이 이메일이 아닌 경우엔 인증 플로우가 불가능하므로 기본적으로 인증 완료 처리
-        if (user.getUsername() == null || !user.getUsername().contains("@")) {
-            user.markEmailVerified(Instant.now());
-        }
-
         userRepository.save(user);
 
-        // 이메일 계정이면 가입 직후 인증메일 발송(인증 전에 로그인 차단이므로 데드락 방지)
-        if (user.getUsername() != null && user.getUsername().contains("@") && !user.isEmailVerified()) {
+        // 가입 직후 인증메일 발송(인증 전 로그인 차단)
+        if (!user.isEmailVerified()) {
             emailVerificationService.sendVerificationEmailByUsername(user.getUsername());
         }
     }
@@ -65,8 +68,8 @@ public class UserService {
      * 로그인
      */
     public String login(LoginRequestDto requestDto) {
-        String username = requestDto.getUsername();
-        String password = requestDto.getPassword();
+        String username = normalizeRequired(requestDto.getUsername(), "username이 비어있습니다.");
+        String password = normalizeRequired(requestDto.getPassword(), "password가 비어있습니다.");
 
         // 1. 유저 확인
         User user = userRepository.findByUsername(username).orElseThrow(
@@ -79,12 +82,30 @@ public class UserService {
         }
 
         // 이메일 계정에 대해서만 인증 전 로그인(토큰 발급) 차단
-        if (user.getUsername() != null && user.getUsername().contains("@") && !user.isEmailVerified()) {
+        if (user.getUsername() != null && isValidEmail(user.getUsername()) && !user.isEmailVerified()) {
             throw new EmailVerificationRequiredException("이메일 인증이 필요합니다.");
         }
 
         // 3. 로그인 성공 및 JWT 발급
         return jwtUtil.createToken(user.getUsername());
+    }
+
+    private String normalizeRequired(String value, String messageIfEmpty) {
+        if (value == null) {
+            throw new IllegalArgumentException(messageIfEmpty);
+        }
+        String trimmed = value.trim();
+        if (trimmed.isEmpty()) {
+            throw new IllegalArgumentException(messageIfEmpty);
+        }
+        return trimmed;
+    }
+
+    private boolean isValidEmail(String value) {
+        if (value == null) return false;
+        String trimmed = value.trim();
+        if (trimmed.isEmpty()) return false;
+        return EMAIL_PATTERN.matcher(trimmed).matches();
     }
     public String getDisplayNameByUserId(Long userId){
         if (userId == null) return "unknown";
